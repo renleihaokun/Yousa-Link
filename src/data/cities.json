@@ -1,0 +1,11 @@
+{
+  "cities": [
+    { "name": "成都", "pinyin": "chengdu", "lat": 30.5728, "lng": 104.0668, "emoji": "🐼" },
+    { "name": "北京", "pinyin": "beijing", "lat": 39.9042, "lng": 116.4074, "emoji": "🏯" },
+    { "name": "杭州", "pinyin": "hangzhou", "lat": 30.2741, "lng": 120.1551, "emoji": "🌊" },
+    { "name": "广州", "pinyin": "guangzhou", "lat": 23.1291, "lng": 113.2644, "emoji": "🌸" },
+    { "name": "厦门", "pinyin": "xiamen", "lat": 24.4798, "lng": 118.0894, "emoji": "🏝️" },
+    { "name": "武汉", "pinyin": "wuhan", "lat": 30.5928, "lng": 114.3055, "emoji": "🌺" },
+    { "name": "上海", "pinyin": "shanghai", "lat": 31.2304, "lng": 121.4737, "emoji": "🌃" }
+  ]
+}

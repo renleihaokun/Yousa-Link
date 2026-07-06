@@ -1,0 +1,180 @@
+---
+import albumsData from '../../data/albums.json';
+
+const { albums } = albumsData;
+---
+
+<div class="timeline-section" id="timeline-section">
+  <div class="timeline-header">
+    <h2>专辑时间线</h2>
+    <div class="timeline-line"></div>
+  </div>
+  
+  <div class="timeline-content">
+    {albums.map((album, index) => (
+      <div class={`timeline-item ${index % 2 === 0 ? 'left' : 'right'}`}>
+        <div class="timeline-dot"></div>
+        <div class="timeline-card card">
+          <div class="album-year">{album.year}</div>
+          <div class="album-cover">
+            <img src={album.cover} alt={album.title} />
+          </div>
+          <div class="album-info">
+            <h3 class="album-title">{album.title}</h3>
+            <p class="album-desc">{album.description}</p>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+<script>
+  const section = document.getElementById('timeline-section');
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.2 });
+
+  document.querySelectorAll('.timeline-item').forEach(item => {
+    observer.observe(item);
+  });
+</script>
+
+<style>
+  .timeline-section {
+    position: relative;
+    min-height: 100vh;
+    padding: 80px 40px;
+    margin-top: 100vh;
+    background: rgba(181, 232, 247, 0.8);
+    backdrop-filter: blur(10px);
+  }
+
+  .timeline-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+
+  .timeline-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 24px;
+  }
+
+  .timeline-line {
+    width: 4px;
+    height: 60px;
+    background: var(--gradient-pink);
+    margin: 0 auto;
+    border-radius: 2px;
+  }
+
+  .timeline-content {
+    position: relative;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .timeline-content::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(155, 89, 182, 0.3);
+    transform: translateX(-50%);
+  }
+
+  .timeline-item {
+    position: relative;
+    width: 50%;
+    padding: 20px 40px;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s ease;
+  }
+
+  .timeline-item.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .timeline-item.left {
+    left: 0;
+    padding-right: 60px;
+    text-align: right;
+  }
+
+  .timeline-item.right {
+    left: 50%;
+    padding-left: 60px;
+  }
+
+  .timeline-dot {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: var(--color-pink);
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: var(--shadow-glow);
+    z-index: 1;
+  }
+
+  .timeline-item.left .timeline-dot {
+    right: -8px;
+  }
+
+  .timeline-item.right .timeline-dot {
+    left: -8px;
+  }
+
+  .timeline-card {
+    padding: 20px;
+    transition: transform 0.3s;
+  }
+
+  .timeline-card:hover {
+    transform: scale(1.02);
+  }
+
+  .album-year {
+    font-family: var(--font-pixel);
+    font-size: 14px;
+    color: var(--color-purple);
+    margin-bottom: 12px;
+  }
+
+  .album-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .album-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .album-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 4px;
+  }
+
+  .album-desc {
+    font-size: 13px;
+    color: var(--color-text-light);
+  }
+</style>

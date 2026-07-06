@@ -1,0 +1,40 @@
+{
+  "albums": [
+    {
+      "year": 2019,
+      "title": "鸢尾结·初",
+      "cover": "/images/albums/album1.jpg",
+      "description": "首张个人专辑"
+    },
+    {
+      "year": 2020,
+      "title": "鸢尾结·承",
+      "cover": "/images/albums/album2.jpg",
+      "description": "第二张专辑"
+    },
+    {
+      "year": 2021,
+      "title": "鸢尾结·转",
+      "cover": "/images/albums/album3.jpg",
+      "description": "第三张专辑"
+    },
+    {
+      "year": 2022,
+      "title": "鸢尾结·合",
+      "cover": "/images/albums/album4.jpg",
+      "description": "第四张专辑"
+    },
+    {
+      "year": 2023,
+      "title": "鸢尾环游线",
+      "cover": "/images/albums/album5.jpg",
+      "description": "巡演主题专辑"
+    },
+    {
+      "year": 2024,
+      "title": "飞鸟集",
+      "cover": "/images/albums/album6.jpg",
+      "description": "精选集"
+    }
+  ]
+}

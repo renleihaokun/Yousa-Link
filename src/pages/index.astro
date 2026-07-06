@@ -1,0 +1,32 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MapLayer from '../components/Map/MapLayer.astro';
+import LocationBadge from '../components/LocationBadge.astro';
+import HudPanel from '../components/HUD/HudPanel.astro';
+import TrainBanner from '../components/TrainScreen/TrainBanner.astro';
+import GalleryPanel from '../components/Gallery/GalleryPanel.astro';
+import FatChickenGame from '../components/Game/FatChickenGame.astro';
+import AlbumTimeline from '../components/Timeline/AlbumTimeline.astro';
+import ReturnButton from '../components/Navigation/ReturnButton.astro';
+---
+
+<Layout>
+  <MapLayer />
+  <LocationBadge />
+  <HudPanel />
+  <TrainBanner />
+  <GalleryPanel />
+  <FatChickenGame />
+  <AlbumTimeline />
+  <ReturnButton />
+</Layout>
+
+<style>
+  :global(body) {
+    overflow-x: hidden;
+  }
+
+  :global(body.panel-open) {
+    overflow: hidden;
+  }
+</style>

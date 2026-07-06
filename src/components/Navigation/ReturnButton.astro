@@ -1,0 +1,83 @@
+---
+---
+
+<div class="return-btn" id="return-btn">
+  <span class="btn-arrow">↑</span>
+  <span class="btn-text">归航</span>
+</div>
+
+<script>
+  const returnBtn = document.getElementById('return-btn');
+
+  function checkPanelState() {
+    const hasOpenPanel = document.body.classList.contains('panel-open');
+    if (returnBtn) {
+      returnBtn.classList.toggle('visible', hasOpenPanel);
+    }
+  }
+
+  const observer = new MutationObserver(checkPanelState);
+  observer.observe(document.body, { 
+    attributes: true, 
+    attributeFilter: ['class'] 
+  });
+
+  returnBtn?.addEventListener('click', () => {
+    const panels = document.querySelectorAll('.expanded');
+    panels.forEach(panel => {
+      panel.classList.remove('expanded');
+    });
+
+    const banners = document.querySelectorAll('.hidden');
+    banners.forEach(banner => {
+      banner.classList.remove('hidden');
+    });
+
+    document.body.classList.remove('panel-open');
+  });
+</script>
+
+<style>
+  .return-btn {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 60px;
+    height: 60px;
+    background: var(--gradient-pink);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-glow);
+  }
+
+  .return-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+
+  .return-btn:hover {
+    transform: scale(1.1);
+  }
+
+  .btn-arrow {
+    font-size: 20px;
+    color: white;
+  }
+
+  .btn-text {
+    font-size: 10px;
+    color: white;
+    letter-spacing: 1px;
+  }
+</style>

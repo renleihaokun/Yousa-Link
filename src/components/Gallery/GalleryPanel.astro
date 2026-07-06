@@ -1,0 +1,213 @@
+---
+---
+
+<div class="gallery-edge" id="gallery-edge">
+  <div class="edge-indicator">
+    <span class="edge-text">相册</span>
+    <span class="edge-arrow">›</span>
+  </div>
+</div>
+
+<div class="gallery-panel" id="gallery-panel">
+  <div class="gallery-header">
+    <h2>相册</h2>
+    <button class="close-btn" id="close-gallery">✕</button>
+  </div>
+  
+  <div class="gallery-featured">
+    <img id="featured-image" src="" alt="随机图片" />
+  </div>
+  
+  <div class="gallery-grid" id="gallery-grid">
+  </div>
+</div>
+
+<script>
+  const edge = document.getElementById('gallery-edge');
+  const panel = document.getElementById('gallery-panel');
+  const closeBtn = document.getElementById('close-gallery');
+  const grid = document.getElementById('gallery-grid');
+  const featured = document.getElementById('featured-image');
+
+  const sampleImages = [
+    '/images/photo1.jpg',
+    '/images/photo2.jpg',
+    '/images/photo3.jpg',
+    '/images/photo4.jpg',
+    '/images/photo5.jpg',
+    '/images/photo6.jpg'
+  ];
+
+  function shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  function loadGallery() {
+    const shuffled = shuffleArray(sampleImages);
+    
+    if (featured) {
+      featured.src = shuffled[0];
+    }
+
+    if (grid) {
+      grid.innerHTML = '';
+      shuffled.forEach((img, index) => {
+        if (index === 0) return;
+        const div = document.createElement('div');
+        div.className = 'gallery-item';
+        div.innerHTML = `<img src="${img}" alt="照片 ${index}" loading="lazy" />`;
+        grid.appendChild(div);
+      });
+    }
+  }
+
+  edge?.addEventListener('click', () => {
+    loadGallery();
+    panel?.classList.add('expanded');
+    document.body.classList.add('panel-open');
+  });
+
+  closeBtn?.addEventListener('click', () => {
+    panel?.classList.remove('expanded');
+    document.body.classList.remove('panel-open');
+  });
+</script>
+
+<style>
+  .gallery-edge {
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 150;
+    cursor: pointer;
+  }
+
+  .edge-indicator {
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    padding: 20px 12px;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    border-left: none;
+    transition: all 0.3s;
+  }
+
+  .edge-indicator:hover {
+    background: rgba(255, 105, 180, 0.2);
+    padding-right: 16px;
+  }
+
+  .edge-text {
+    writing-mode: vertical-rl;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .edge-arrow {
+    font-size: 20px;
+    color: var(--color-pink);
+  }
+
+  .gallery-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(181, 232, 247, 0.95);
+    backdrop-filter: blur(20px);
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    padding: 40px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-100%);
+    transition: all 0.4s ease;
+  }
+
+  .gallery-panel.expanded {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+  }
+
+  .gallery-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--color-text-light);
+    transition: color 0.2s;
+  }
+
+  .close-btn:hover {
+    color: var(--color-pink);
+  }
+
+  .gallery-featured {
+    width: 100%;
+    max-height: 50vh;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .gallery-featured img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .gallery-item {
+    aspect-ratio: 1;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s;
+    box-shadow: var(--shadow-card);
+  }
+
+  .gallery-item:hover {
+    transform: scale(1.05);
+  }
+
+  .gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+</style>

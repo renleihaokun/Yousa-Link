@@ -1,0 +1,179 @@
+---
+---
+
+<div class="hud-panel glass">
+  <div class="network-section">
+    <span class="info-label">地址：</span>
+    <span class="info-value" id="ip-address">检测中...</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="player-section">
+    <div class="song-title" id="song-title">加载中...</div>
+    <div class="control-buttons">
+      <button class="ctrl-btn" id="prev-btn">⏮</button>
+      <button class="ctrl-btn play-btn" id="play-btn">▶</button>
+      <button class="ctrl-btn" id="next-btn">⏭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function fetchNetworkInfo() {
+    try {
+      const response = await fetch('https://ip.nemui.cn/api/ip');
+      const data = await response.json();
+      document.getElementById('ip-address')!.textContent = data.ip || '未知';
+    } catch {
+      document.getElementById('ip-address')!.textContent = '离线';
+    }
+  }
+
+  fetchNetworkInfo();
+
+  let isPlaying = false;
+  let currentAudio: HTMLAudioElement | null = null;
+  let songList: Array<{ name: string; url: string }> = [];
+  let currentIndex = 0;
+
+  async function loadPlaylist() {
+    try {
+      const response = await fetch('https://meting.hanxiang.cn/api?server=netease&type=playlist&id=7464544940');
+      const data = await response.json();
+      if (data.songs && Array.isArray(data.songs)) {
+        songList = data.songs.map((song: any) => ({
+          name: song.name || '未知',
+          url: song.url || ''
+        }));
+        updateSongDisplay();
+      }
+    } catch {
+      document.getElementById('song-title')!.textContent = '播放器加载失败';
+    }
+  }
+
+  function updateSongDisplay() {
+    if (songList.length === 0) return;
+    document.getElementById('song-title')!.textContent = songList[currentIndex].name;
+  }
+
+  document.getElementById('play-btn')?.addEventListener('click', () => {
+    if (songList.length === 0) return;
+
+    if (isPlaying) {
+      currentAudio?.pause();
+      document.getElementById('play-btn')!.textContent = '▶';
+      isPlaying = false;
+    } else {
+      if (!currentAudio) {
+        currentAudio = new Audio(songList[currentIndex].url);
+        currentAudio.addEventListener('ended', playNext);
+      }
+      currentAudio.play();
+      document.getElementById('play-btn')!.textContent = '⏸';
+      isPlaying = true;
+    }
+  });
+
+  function playNext() {
+    currentIndex = (currentIndex + 1) % songList.length;
+    updateSongDisplay();
+    if (currentAudio) {
+      currentAudio.src = songList[currentIndex].url;
+      if (isPlaying) currentAudio.play();
+    }
+  }
+
+  document.getElementById('next-btn')?.addEventListener('click', playNext);
+
+  document.getElementById('prev-btn')?.addEventListener('click', () => {
+    currentIndex = (currentIndex - 1 + songList.length) % songList.length;
+    updateSongDisplay();
+    if (currentAudio) {
+      currentAudio.src = songList[currentIndex].url;
+      if (isPlaying) currentAudio.play();
+    }
+  });
+
+  loadPlaylist();
+</script>
+
+<style>
+  .hud-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 240px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow:
+      0 8px 32px rgba(155, 89, 182, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .network-section {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  .info-label {
+    color: var(--color-text-light);
+  }
+
+  .info-value {
+    color: #4ADE80;
+    font-weight: 500;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px dashed rgba(155, 89, 182, 0.3);
+    margin: 12px 0;
+  }
+
+  .player-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .song-title {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .control-buttons {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 8px;
+  }
+
+  .ctrl-btn {
+    background: none;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--color-text);
+    transition: color 0.2s;
+  }
+
+  .ctrl-btn:hover {
+    color: var(--color-pink);
+  }
+
+  .play-btn {
+    color: var(--color-pink);
+  }
+</style>

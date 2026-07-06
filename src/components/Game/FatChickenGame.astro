@@ -1,0 +1,263 @@
+---
+---
+
+<div class="game-edge" id="game-edge">
+  <div class="edge-indicator">
+    <span class="edge-text">抓肥鸡</span>
+    <span class="edge-arrow">‹</span>
+  </div>
+</div>
+
+<div class="game-panel" id="game-panel">
+  <div class="game-header">
+    <h2>抓肥鸡</h2>
+    <button class="close-btn" id="close-game">✕</button>
+  </div>
+  
+  <div class="game-stats">
+    <span class="stats-label">肥鸡已被抓住</span>
+    <span class="stats-count" id="catch-count">0</span>
+    <span class="stats-label">次</span>
+  </div>
+  
+  <div class="game-area" id="game-area">
+    <div class="fat-chicken" id="fat-chicken">🐔</div>
+    <div class="game-hint">点击肥鸡！</div>
+  </div>
+</div>
+
+<script>
+  const edge = document.getElementById('game-edge');
+  const panel = document.getElementById('game-panel');
+  const closeBtn = document.getElementById('close-game');
+  const gameArea = document.getElementById('game-area');
+  const chicken = document.getElementById('fat-chicken');
+  const catchCount = document.getElementById('catch-count');
+
+  let count = 0;
+  let gameActive = false;
+  let moveInterval: number | null = null;
+
+  function moveChicken() {
+    if (!gameArea || !chicken) return;
+    const areaRect = gameArea.getBoundingClientRect();
+    const maxX = areaRect.width - 80;
+    const maxY = areaRect.height - 80;
+    
+    const newX = Math.random() * maxX;
+    const newY = Math.random() * maxY;
+    
+    chicken.style.left = `${newX}px`;
+    chicken.style.top = `${newY}px`;
+  }
+
+  function startGame() {
+    gameActive = true;
+    moveChicken();
+    moveInterval = window.setInterval(moveChicken, 800);
+  }
+
+  function stopGame() {
+    gameActive = false;
+    if (moveInterval) {
+      clearInterval(moveInterval);
+      moveInterval = null;
+    }
+  }
+
+  chicken?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!gameActive) return;
+    
+    count++;
+    if (catchCount) catchCount.textContent = count.toString();
+    
+    chicken.style.transform = 'scale(1.5) rotate(20deg)';
+    setTimeout(() => {
+      if (chicken) chicken.style.transform = '';
+      moveChicken();
+    }, 200);
+
+    // Send to Cloudflare KV
+    fetch('/api/catch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ count })
+    }).catch(() => {});
+  });
+
+  edge?.addEventListener('click', () => {
+    panel?.classList.add('expanded');
+    document.body.classList.add('panel-open');
+    startGame();
+  });
+
+  closeBtn?.addEventListener('click', () => {
+    panel?.classList.remove('expanded');
+    document.body.classList.remove('panel-open');
+    stopGame();
+  });
+
+  // Load initial count
+  fetch('/api/catch')
+    .then(res => res.json())
+    .then(data => {
+      if (catchCount && data.count) {
+        catchCount.textContent = data.count.toString();
+        count = data.count;
+      }
+    })
+    .catch(() => {});
+</script>
+
+<style>
+  .game-edge {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 150;
+    cursor: pointer;
+  }
+
+  .edge-indicator {
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    padding: 20px 12px;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    border-right: none;
+    transition: all 0.3s;
+  }
+
+  .edge-indicator:hover {
+    background: rgba(255, 105, 180, 0.2);
+    padding-left: 16px;
+  }
+
+  .edge-text {
+    writing-mode: vertical-rl;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .edge-arrow {
+    font-size: 20px;
+    color: var(--color-pink);
+  }
+
+  .game-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(181, 232, 247, 0.95);
+    backdrop-filter: blur(20px);
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    padding: 40px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(100%);
+    transition: all 0.4s ease;
+  }
+
+  .game-panel.expanded {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .game-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--color-text-light);
+    transition: color 0.2s;
+  }
+
+  .close-btn:hover {
+    color: var(--color-pink);
+  }
+
+  .game-stats {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 32px;
+    padding: 16px 24px;
+    background: var(--color-card-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-card-border);
+    width: fit-content;
+  }
+
+  .stats-label {
+    font-size: 14px;
+    color: var(--color-text-light);
+  }
+
+  .stats-count {
+    font-family: var(--font-pixel);
+    font-size: 24px;
+    color: var(--color-pink);
+    font-weight: 700;
+  }
+
+  .game-area {
+    flex: 1;
+    position: relative;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: var(--radius-lg);
+    border: 2px dashed var(--color-card-border);
+    overflow: hidden;
+  }
+
+  .fat-chicken {
+    position: absolute;
+    font-size: 60px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.2s;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .fat-chicken:hover {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+
+  .game-hint {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    color: var(--color-text-light);
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius-sm);
+  }
+</style>

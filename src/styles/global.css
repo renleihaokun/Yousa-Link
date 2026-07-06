@@ -1,0 +1,91 @@
+:root {
+  --color-bg: #000000;
+  --color-bg-dark: #111111;
+  --color-pink: #FF69B4;
+  --color-pink-light: #FFB6D9;
+  --color-purple: #9B59B6;
+  --color-purple-light: #C39BD3;
+  --color-yellow: #FFD700;
+  --color-text: #E0E0E0;
+  --color-text-light: #888888;
+  --color-white: #FFFFFF;
+  --color-card-bg: rgba(255, 255, 255, 0.08);
+  --color-card-border: rgba(255, 105, 180, 0.3);
+  --color-glow: rgba(255, 105, 180, 0.6);
+
+  --gradient-pink: linear-gradient(135deg, #FF69B4 0%, #9B59B6 100%);
+  --gradient-bg: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
+
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(255, 105, 180, 0.4);
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  --font-main: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-pixel: 'Press Start 2P', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-main);
+  color: var(--color-text);
+  background: #000;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  background: #000;
+}
+
+.card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-card);
+}
+
+.card-glow {
+  box-shadow: var(--shadow-glow);
+  border-color: var(--color-pink);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.gradient-text {
+  background: var(--gradient-pink);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px var(--color-glow); }
+  50% { box-shadow: 0 0 25px var(--color-glow); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(1px, -1px); }
+  50% { transform: translate(-1px, 1px); }
+  75% { transform: translate(1px, 1px); }
+}

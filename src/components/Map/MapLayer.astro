@@ -1,0 +1,249 @@
+---
+---
+
+<div id="map-container" class="map-container">
+  <div id="map-chart" class="map-chart"></div>
+  <canvas id="wind-canvas" class="wind-canvas"></canvas>
+  <div class="south-sea-box">
+    <div class="south-sea-label">南海诸岛</div>
+    <div id="south-sea-chart" class="south-sea-chart"></div>
+  </div>
+</div>
+
+<script>
+  import * as echarts from 'echarts';
+
+  const cities = [
+    { name: '成都', value: [104.0668, 30.5728, 100] },
+    { name: '北京', value: [116.4074, 39.9042, 100] },
+    { name: '杭州', value: [120.1551, 30.2741, 100] },
+    { name: '广州', value: [113.2644, 23.1291, 100] },
+    { name: '厦门', value: [118.0894, 24.4798, 100] },
+    { name: '武汉', value: [114.3055, 30.5928, 100] },
+    { name: '上海', value: [121.4737, 31.2304, 100] }
+  ];
+
+  const tourRoutes = [
+    { from: [104.0668, 30.5728], to: [116.4074, 39.9042] },
+    { from: [116.4074, 39.9042], to: [120.1551, 30.2741] },
+    { from: [120.1551, 30.2741], to: [113.2644, 23.1291] },
+    { from: [113.2644, 23.1291], to: [118.0894, 24.4798] },
+    { from: [118.0894, 24.4798], to: [114.3055, 30.5928] },
+    { from: [114.3055, 30.5928], to: [121.4737, 31.2304] }
+  ];
+
+  async function initMap() {
+    const chinaRes = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+    const chinaGeo = await chinaRes.json();
+    echarts.registerMap('china', chinaGeo);
+
+    const routeLines = tourRoutes.map(route => ({
+      coords: [route.from, route.to]
+    }));
+
+    // Main map
+    const chartDom = document.getElementById('map-chart')!;
+    const mainChart = echarts.init(chartDom);
+    mainChart.setOption({
+      backgroundColor: 'transparent',
+      geo: {
+        map: 'china',
+        roam: false,
+        zoom: 1.2,
+        center: [104, 36],
+        label: { show: false },
+        itemStyle: {
+          areaColor: '#4a4a4a',
+          borderColor: 'rgba(255,255,255,0.15)',
+          borderWidth: 0.8
+        },
+        emphasis: {
+          disabled: false,
+          itemStyle: {
+            areaColor: '#666',
+            borderColor: 'rgba(255,255,255,0.3)'
+          }
+        }
+      },
+      series: [
+        {
+          type: 'lines',
+          coordinateSystem: 'geo',
+          zlevel: 1,
+          effect: {
+            show: true,
+            period: 4,
+            trailLength: 0.4,
+            symbol: 'arrow',
+            symbolSize: 6,
+            color: '#FF69B4'
+          },
+          lineStyle: {
+            color: 'rgba(255, 105, 180, 0.5)',
+            width: 2,
+            curveness: 0.2
+          },
+          data: routeLines
+        },
+        {
+          type: 'scatter',
+          coordinateSystem: 'geo',
+          zlevel: 2,
+          symbol: 'circle',
+          symbolSize: 12,
+          itemStyle: {
+            color: '#FF69B4',
+            shadowBlur: 20,
+            shadowColor: 'rgba(255, 105, 180, 0.8)'
+          },
+          label: {
+            show: true,
+            position: 'right',
+            formatter: '{b}',
+            color: '#ccc',
+            fontSize: 12
+          },
+          data: cities
+        }
+      ]
+    });
+
+    // South China Sea inset
+    const seaDom = document.getElementById('south-sea-chart')!;
+    const seaChart = echarts.init(seaDom);
+    seaChart.setOption({
+      backgroundColor: 'transparent',
+      geo: {
+        map: 'china',
+        roam: false,
+        zoom: 2.8,
+        center: [112, 15],
+        label: { show: false },
+        itemStyle: {
+          areaColor: '#4a4a4a',
+          borderColor: 'rgba(255,255,255,0.2)',
+          borderWidth: 0.5
+        },
+        emphasis: { disabled: true },
+        regions: [
+          { name: '南海诸岛', itemStyle: { areaColor: '#4a4a4a' } }
+        ]
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      mainChart.resize();
+      seaChart.resize();
+    });
+  }
+
+  initMap();
+
+  const canvas = document.getElementById('wind-canvas') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d')!;
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  interface Particle {
+    x: number;
+    y: number;
+    speed: number;
+    opacity: number;
+    length: number;
+  }
+
+  const particles: Particle[] = [];
+  for (let i = 0; i < 50; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      speed: 2 + Math.random() * 4,
+      opacity: 0.1 + Math.random() * 0.3,
+      length: 20 + Math.random() * 40
+    });
+  }
+
+  function animateWind() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach(p => {
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.length, p.y);
+      ctx.strokeStyle = `rgba(255, 105, 180, ${p.opacity})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      p.x -= p.speed;
+      p.opacity -= 0.001;
+
+      if (p.x < -p.length || p.opacity <= 0) {
+        p.x = canvas.width + Math.random() * 100;
+        p.y = Math.random() * canvas.height;
+        p.opacity = 0.1 + Math.random() * 0.3;
+      }
+    });
+
+    requestAnimationFrame(animateWind);
+  }
+
+  animateWind();
+</script>
+
+<style>
+  .map-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    background: #000;
+  }
+
+  .map-chart {
+    width: 100%;
+    height: 100%;
+  }
+
+  .wind-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .south-sea-box {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 140px;
+    height: 180px;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    overflow: hidden;
+    z-index: 10;
+  }
+
+  .south-sea-label {
+    font-size: 10px;
+    color: #888;
+    text-align: center;
+    padding: 4px 0;
+    letter-spacing: 1px;
+  }
+
+  .south-sea-chart {
+    width: 100%;
+    height: calc(100% - 24px);
+  }
+</style>
