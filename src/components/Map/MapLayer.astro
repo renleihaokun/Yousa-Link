@@ -3,10 +3,19 @@
 
 <div id="map-container" class="map-container">
   <div id="map-chart" class="map-chart"></div>
-  <canvas id="wind-canvas" class="wind-canvas"></canvas>
-  <div class="south-sea-box">
-    <div class="south-sea-label">南海诸岛</div>
-    <div id="south-sea-chart" class="south-sea-chart"></div>
+  <div class="airflow-layer">
+    <div class="speed-line s1"></div>
+    <div class="speed-line s2"></div>
+    <div class="speed-line s3"></div>
+    <div class="speed-line s4"></div>
+    <div class="speed-line s5"></div>
+    <div class="speed-line s6"></div>
+    <div class="speed-line s7"></div>
+    <div class="speed-line s8"></div>
+    <div class="speed-line s9"></div>
+    <div class="speed-line s10"></div>
+    <div class="speed-line s11"></div>
+    <div class="speed-line s12"></div>
   </div>
 </div>
 
@@ -14,13 +23,13 @@
   import * as echarts from 'echarts';
 
   const cities = [
-    { name: '成都', value: [104.0668, 30.5728, 100] },
-    { name: '北京', value: [116.4074, 39.9042, 100] },
-    { name: '杭州', value: [120.1551, 30.2741, 100] },
-    { name: '广州', value: [113.2644, 23.1291, 100] },
-    { name: '厦门', value: [118.0894, 24.4798, 100] },
-    { name: '武汉', value: [114.3055, 30.5928, 100] },
-    { name: '上海', value: [121.4737, 31.2304, 100] }
+    { name: '成都', value: [104.0668, 30.5728] },
+    { name: '北京', value: [116.4074, 39.9042] },
+    { name: '杭州', value: [120.1551, 30.2741] },
+    { name: '广州', value: [113.2644, 23.1291] },
+    { name: '厦门', value: [118.0894, 24.4798] },
+    { name: '武汉', value: [114.3055, 30.5928] },
+    { name: '上海', value: [121.4737, 31.2304] }
   ];
 
   const tourRoutes = [
@@ -32,38 +41,82 @@
     { from: [114.3055, 30.5928], to: [121.4737, 31.2304] }
   ];
 
+  const PROVINCE_COLORS = [
+    '#222222', '#252525', '#282828', '#2b2b2b', '#2e2e2e',
+    '#313131', '#232323', '#262626', '#292929', '#2c2c2c',
+    '#2f2f2f', '#242424', '#272727', '#2a2a2a', '#2d2d2d',
+    '#303030', '#212121', '#323232', '#333333', '#202020',
+    '#2e2e2e', '#262626', '#2a2a2a', '#222222', '#2c2c2c',
+    '#242424', '#282828', '#303030', '#2f2f2f', '#272727',
+    '#2b2b2b', '#232223', '#292929', '#313131'
+  ];
+
+  const CENTER: [number, number] = [104, 36];
+  const INIT_ZOOM = 2.2;
+  const MIN_ZOOM = 1.8;
+  const MAX_ZOOM = 8;
+  const BOUNDS = { lngMin: 60, lngMax: 145, latMin: 10, latMax: 60 };
+
   async function initMap() {
-    const chinaRes = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+    const [neighborsRes, chinaRes] = await Promise.all([
+      fetch('/neighbors.geo.json'),
+      fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+    ]);
+    const neighborsGeo = await neighborsRes.json();
     const chinaGeo = await chinaRes.json();
-    echarts.registerMap('china', chinaGeo);
+
+    // Merge into one GeoJSON: neighbors (without China) + China provinces
+    const neighborFeatures = neighborsGeo.features.filter(
+      (f: any) => f.properties.name !== 'China'
+    );
+    const merged = {
+      type: 'FeatureCollection' as const,
+      features: [...neighborFeatures, ...chinaGeo.features]
+    };
+    echarts.registerMap('world', merged);
+
+    const regionStyles = merged.features.map((f: any, i: number) => {
+      const isNeighbor = i < neighborFeatures.length;
+      return {
+        name: f.properties.name,
+        itemStyle: {
+          areaColor: isNeighbor ? '#0e0e0e' : PROVINCE_COLORS[(i - neighborFeatures.length) % PROVINCE_COLORS.length],
+          borderColor: isNeighbor
+            ? 'rgba(255,255,255,0.04)'
+            : 'rgba(255, 105, 180, 0.2)',
+          borderWidth: isNeighbor ? 0.5 : 0.8,
+          shadowColor: isNeighbor ? 'transparent' : 'rgba(255, 105, 180, 0.15)',
+          shadowBlur: isNeighbor ? 0 : 6
+        }
+      };
+    });
 
     const routeLines = tourRoutes.map(route => ({
       coords: [route.from, route.to]
     }));
 
-    // Main map
     const chartDom = document.getElementById('map-chart')!;
     const mainChart = echarts.init(chartDom);
+
     mainChart.setOption({
       backgroundColor: 'transparent',
       geo: {
-        map: 'china',
-        roam: false,
-        zoom: 1.2,
-        center: [104, 36],
+        map: 'world',
+        roam: true,
+        scaleLimit: { min: MIN_ZOOM, max: MAX_ZOOM },
+        zoom: INIT_ZOOM,
+        center: CENTER,
         label: { show: false },
-        itemStyle: {
-          areaColor: '#4a4a4a',
-          borderColor: 'rgba(255,255,255,0.15)',
-          borderWidth: 0.8
-        },
         emphasis: {
           disabled: false,
           itemStyle: {
-            areaColor: '#666',
-            borderColor: 'rgba(255,255,255,0.3)'
+            areaColor: '#3a3a3a',
+            borderColor: 'rgba(255, 105, 180, 0.5)',
+            shadowBlur: 12
           }
-        }
+        },
+        select: { disabled: true },
+        regions: regionStyles
       },
       series: [
         {
@@ -86,11 +139,18 @@
           data: routeLines
         },
         {
-          type: 'scatter',
+          type: 'effectScatter',
           coordinateSystem: 'geo',
           zlevel: 2,
           symbol: 'circle',
-          symbolSize: 12,
+          symbolSize: 10,
+          showEffectOn: 'render',
+          rippleEffect: {
+            brushType: 'stroke',
+            scale: 4,
+            period: 3,
+            number: 2
+          },
           itemStyle: {
             color: '#FF69B4',
             shadowBlur: 20,
@@ -101,98 +161,40 @@
             position: 'right',
             formatter: '{b}',
             color: '#ccc',
-            fontSize: 12
+            fontSize: 12,
+            textShadowColor: 'rgba(0,0,0,0.8)',
+            textShadowBlur: 4
           },
           data: cities
         }
       ]
     });
 
-    // South China Sea inset
-    const seaDom = document.getElementById('south-sea-chart')!;
-    const seaChart = echarts.init(seaDom);
-    seaChart.setOption({
-      backgroundColor: 'transparent',
-      geo: {
-        map: 'china',
-        roam: false,
-        zoom: 2.8,
-        center: [112, 15],
-        label: { show: false },
-        itemStyle: {
-          areaColor: '#4a4a4a',
-          borderColor: 'rgba(255,255,255,0.2)',
-          borderWidth: 0.5
-        },
-        emphasis: { disabled: true },
-        regions: [
-          { name: '南海诸岛', itemStyle: { areaColor: '#4a4a4a' } }
-        ]
+    // Clamp viewport on drag
+    mainChart.on('georoam', () => {
+      const opt = mainChart.getOption() as any;
+      const geo = opt.geo?.[0];
+      if (!geo) return;
+
+      const cz = geo.center as [number, number];
+      const z = geo.zoom as number;
+      const halfLng = 90 / z;
+      const halfLat = 50 / z;
+
+      const clampedLng = Math.max(BOUNDS.lngMin + halfLng, Math.min(BOUNDS.lngMax - halfLng, cz[0]));
+      const clampedLat = Math.max(BOUNDS.latMin + halfLat, Math.min(BOUNDS.latMax - halfLat, cz[1]));
+
+      if (clampedLng !== cz[0] || clampedLat !== cz[1]) {
+        mainChart.setOption({
+          geo: { center: [clampedLng, clampedLat] }
+        });
       }
     });
 
-    window.addEventListener('resize', () => {
-      mainChart.resize();
-      seaChart.resize();
-    });
+    window.addEventListener('resize', () => mainChart.resize());
   }
 
   initMap();
-
-  const canvas = document.getElementById('wind-canvas') as HTMLCanvasElement;
-  const ctx = canvas.getContext('2d')!;
-
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
-
-  interface Particle {
-    x: number;
-    y: number;
-    speed: number;
-    opacity: number;
-    length: number;
-  }
-
-  const particles: Particle[] = [];
-  for (let i = 0; i < 50; i++) {
-    particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      speed: 2 + Math.random() * 4,
-      opacity: 0.1 + Math.random() * 0.3,
-      length: 20 + Math.random() * 40
-    });
-  }
-
-  function animateWind() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    particles.forEach(p => {
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x - p.length, p.y);
-      ctx.strokeStyle = `rgba(255, 105, 180, ${p.opacity})`;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      p.x -= p.speed;
-      p.opacity -= 0.001;
-
-      if (p.x < -p.length || p.opacity <= 0) {
-        p.x = canvas.width + Math.random() * 100;
-        p.y = Math.random() * canvas.height;
-        p.opacity = 0.1 + Math.random() * 0.3;
-      }
-    });
-
-    requestAnimationFrame(animateWind);
-  }
-
-  animateWind();
 </script>
 
 <style>
@@ -209,41 +211,63 @@
   .map-chart {
     width: 100%;
     height: 100%;
+    cursor: grab;
   }
 
-  .wind-canvas {
-    position: absolute;
+  .map-chart:active {
+    cursor: grabbing;
+  }
+
+  .airflow-layer {
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     pointer-events: none;
-  }
-
-  .south-sea-box {
-    position: fixed;
-    bottom: 40px;
-    right: 40px;
-    width: 140px;
-    height: 180px;
-    border: 1px solid rgba(255, 105, 180, 0.3);
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
     overflow: hidden;
-    z-index: 10;
+    z-index: 1;
   }
 
-  .south-sea-label {
-    font-size: 10px;
-    color: #888;
-    text-align: center;
-    padding: 4px 0;
-    letter-spacing: 1px;
+  .speed-line {
+    position: absolute;
+    width: 1px;
+    height: 160px;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.2) 25%,
+      rgba(255, 255, 255, 0.2) 75%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    will-change: transform, opacity;
+    opacity: 0;
   }
 
-  .south-sea-chart {
-    width: 100%;
-    height: calc(100% - 24px);
+  .s1  { top: 5%;  left: -10%; transform-origin: center top; animation: fly-left  1.4s linear infinite 0.0s; }
+  .s2  { top: 12%; left: 110%; transform-origin: center top; animation: fly-right 1.6s linear infinite 0.4s; }
+  .s3  { top: 20%; left: -10%; transform-origin: center top; animation: fly-left  1.2s linear infinite 0.9s; }
+  .s4  { top: 30%; left: 110%; transform-origin: center top; animation: fly-right 1.5s linear infinite 0.2s; }
+  .s5  { top: 38%; left: -10%; transform-origin: center top; animation: fly-left  1.8s linear infinite 1.3s; }
+  .s6  { top: 48%; left: 110%; transform-origin: center top; animation: fly-right 1.3s linear infinite 0.7s; }
+  .s7  { top: 55%; left: -10%; transform-origin: center top; animation: fly-left  1.6s linear infinite 1.8s; }
+  .s8  { top: 65%; left: 110%; transform-origin: center top; animation: fly-right 1.4s linear infinite 0.1s; }
+  .s9  { top: 72%; left: -10%; transform-origin: center top; animation: fly-left  1.7s linear infinite 1.1s; }
+  .s10 { top: 80%; left: 110%; transform-origin: center top; animation: fly-right 1.2s linear infinite 0.6s; }
+  .s11 { top: 88%; left: -10%; transform-origin: center top; animation: fly-left  1.5s linear infinite 1.5s; }
+  .s12 { top: 95%; left: 110%; transform-origin: center top; animation: fly-right 1.8s linear infinite 0.3s; }
+
+  @keyframes fly-left {
+    0%   { transform: translateX(0) rotate(25deg); opacity: 0; }
+    8%   { opacity: 1; }
+    88%  { opacity: 1; }
+    100% { transform: translateX(120vw) rotate(25deg); opacity: 0; }
+  }
+
+  @keyframes fly-right {
+    0%   { transform: translateX(0) rotate(-25deg); opacity: 0; }
+    8%   { opacity: 1; }
+    88%  { opacity: 1; }
+    100% { transform: translateX(-120vw) rotate(-25deg); opacity: 0; }
   }
 </style>
