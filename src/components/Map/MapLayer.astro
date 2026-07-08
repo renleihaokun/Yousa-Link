@@ -51,10 +51,8 @@
     '#2b2b2b', '#232223', '#292929', '#313131'
   ];
 
-  const CENTER: [number, number] = [104, 36];
-  const INIT_ZOOM = 2.2;
-  const MIN_ZOOM = 1.8;
-  const MAX_ZOOM = 8;
+  const CENTER: [number, number] = [109, 33];
+  const INIT_ZOOM = 5;
   const BOUNDS = { lngMin: 60, lngMax: 145, latMin: 10, latMax: 60 };
 
   async function initMap() {
@@ -96,19 +94,23 @@
     }));
 
     const chartDom = document.getElementById('map-chart')!;
-    const mainChart = echarts.init(chartDom);
+    const mainChart = echarts.init(chartDom, undefined, { renderer: 'svg' });
 
     mainChart.setOption({
       backgroundColor: 'transparent',
       geo: {
         map: 'world',
-        roam: true,
-        scaleLimit: { min: MIN_ZOOM, max: MAX_ZOOM },
+        roam: 'move',
         zoom: INIT_ZOOM,
         center: CENTER,
-        label: { show: false },
+        label: { show: false, color: '#B5E8F7' },
         emphasis: {
           disabled: false,
+          label: {
+            show: true,
+            color: '#B5E8F7',
+            fontSize: 12
+          },
           itemStyle: {
             areaColor: '#3a3a3a',
             borderColor: 'rgba(255, 105, 180, 0.5)',
@@ -122,7 +124,8 @@
         {
           type: 'lines',
           coordinateSystem: 'geo',
-          zlevel: 1,
+          clip: false,
+          z: 1,
           effect: {
             show: true,
             period: 4,
@@ -141,7 +144,8 @@
         {
           type: 'effectScatter',
           coordinateSystem: 'geo',
-          zlevel: 2,
+          clip: false,
+          z: 2,
           symbol: 'circle',
           symbolSize: 10,
           showEffectOn: 'render',
@@ -170,7 +174,36 @@
       ]
     });
 
-    // Clamp viewport on drag
+    function syncSeriesTransform() {
+      const zr = (mainChart as any).getZr();
+      const model = (mainChart as any).getModel();
+      const geoCoordSys = model.getComponentModel('geo')?.coordinateSystem;
+      if (!geoCoordSys?.getRoamTransform) {
+        console.warn('[sync] no geoCoordSys or getRoamTransform');
+        return;
+      }
+
+      const roamMatrix = geoCoordSys.getRoamTransform();
+      console.log('[sync] roamMatrix:', roamMatrix);
+
+      const displayList = zr.storage.getDisplayList(true);
+      console.log('[sync] displayList length:', displayList.length);
+
+      // 检查前几个元素的结构
+      for (let i = 0; i < Math.min(displayList.length, 30); i++) {
+        const el = displayList[i];
+        const info = (el as any).__ecComponentInfo;
+        console.log(`[sync] el[${i}] type=${el.type} ecInfo=`, info, 'hasTransform=', !!el.transform);
+      }
+
+      // 尝试通过 echarts 内部 view 找 series group
+      const charts = (mainChart as any)._chartsViews || [];
+      console.log('[sync] _chartsViews count:', charts.length);
+      for (const view of charts) {
+        console.log('[sync] view type:', view.type, 'group:', view.group);
+      }
+    }
+
     mainChart.on('georoam', () => {
       const opt = mainChart.getOption() as any;
       const geo = opt.geo?.[0];
@@ -189,6 +222,8 @@
           geo: { center: [clampedLng, clampedLat] }
         });
       }
+
+      syncSeriesTransform();
     });
 
     window.addEventListener('resize', () => mainChart.resize());
