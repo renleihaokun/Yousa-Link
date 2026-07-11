@@ -1,40 +1,28 @@
 {
   "albums": [
     {
-      "year": 2019,
-      "title": "鸢尾结·初",
-      "cover": "/images/albums/album1.jpg",
-      "description": "首张个人专辑"
+      "year": 2026,
+      "title": "???",
+      "cover": "/images/albums/question-mark.png",
+      "description": "咕咕嘎嘎"
     },
     {
-      "year": 2020,
-      "title": "鸢尾结·承",
-      "cover": "/images/albums/album2.jpg",
-      "description": "第二张专辑"
+      "year": "2024-10-03",
+      "title": "自下而向上生",
+      "cover": "/images/albums/自下而向上生_109951170362931481.jpg",
+      "description": "泠鸢yousa第三张个人原创专辑，收录泠鸢yousa 6首词曲创作专辑，2首原唱作品，《自下而向上生》的无限生命力！"
     },
     {
-      "year": 2021,
-      "title": "鸢尾结·转",
-      "cover": "/images/albums/album3.jpg",
-      "description": "第三张专辑"
+      "year": "2019-12-09",
+      "title": "折纸信笺",
+      "cover": "/images/albums/折纸信笺_109951165543194247.jpg",
+      "description": "虚拟艺人\"泠鸢yousa\"个人原创音乐专辑，寓意将信笺当做折纸，诗意和童真共存。由泠鸢主创并作词、演唱，邀请数位乐师、乐手合作创作共10首精心制作的原创曲目"
     },
     {
-      "year": 2022,
-      "title": "鸢尾结·合",
-      "cover": "/images/albums/album4.jpg",
-      "description": "第四张专辑"
-    },
-    {
-      "year": 2023,
-      "title": "鸢尾环游线",
-      "cover": "/images/albums/album5.jpg",
-      "description": "巡演主题专辑"
-    },
-    {
-      "year": 2024,
-      "title": "飞鸟集",
-      "cover": "/images/albums/album6.jpg",
-      "description": "精选集"
+      "year": "2016-08-15",
+      "title": "茜色诗集",
+      "cover": "/images/albums/茜色诗集_109951162817808719.jpg",
+      "description": "泠鸢yousa首张个人专辑，其中本人负责2首作词作曲，3首作词，2首翻唱"
     }
   ]
 }

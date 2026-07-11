@@ -80,7 +80,7 @@
     }));
 
     const chartDom = document.getElementById('map-chart')!;
-    const mainChart = echarts.init(chartDom, undefined, { renderer: 'svg' });
+    const mainChart = echarts.init(chartDom);
 
     mainChart.setOption({
       backgroundColor: 'transparent',
@@ -160,43 +160,13 @@
       ]
     });
 
-    function syncSeriesTransform() {
-      const zr = (mainChart as any).getZr();
-      const model = (mainChart as any).getModel();
-      const geoCoordSys = model.getComponentModel('geo')?.coordinateSystem;
-      if (!geoCoordSys?.getRoamTransform) {
-        console.warn('[sync] no geoCoordSys or getRoamTransform');
-        return;
-      }
-
-      const roamMatrix = geoCoordSys.getRoamTransform();
-      console.log('[sync] roamMatrix:', roamMatrix);
-
-      const displayList = zr.storage.getDisplayList(true);
-      console.log('[sync] displayList length:', displayList.length);
-
-      // 检查前几个元素的结构
-      for (let i = 0; i < Math.min(displayList.length, 30); i++) {
-        const el = displayList[i];
-        const info = (el as any).__ecComponentInfo;
-        console.log(`[sync] el[${i}] type=${el.type} ecInfo=`, info, 'hasTransform=', !!el.transform);
-      }
-
-      // 尝试通过 echarts 内部 view 找 series group
-      const charts = (mainChart as any)._chartsViews || [];
-      console.log('[sync] _chartsViews count:', charts.length);
-      for (const view of charts) {
-        console.log('[sync] view type:', view.type, 'group:', view.group);
-      }
-    }
-
     mainChart.on('georoam', () => {
-      const opt = mainChart.getOption() as any;
-      const geo = opt.geo?.[0];
-      if (!geo) return;
+      const geoModel = (mainChart as any).getModel().getComponentModel('geo');
+      const coordSys = geoModel?.coordinateSystem;
+      if (!coordSys) return;
 
-      const cz = geo.center as [number, number];
-      const z = geo.zoom as number;
+      const cz = coordSys.getCenter();
+      const z = coordSys.getZoom();
       const halfLng = 90 / z;
       const halfLat = 50 / z;
 
@@ -204,12 +174,12 @@
       const clampedLat = Math.max(BOUNDS.latMin + halfLat, Math.min(BOUNDS.latMax - halfLat, cz[1]));
 
       if (clampedLng !== cz[0] || clampedLat !== cz[1]) {
-        mainChart.setOption({
-          geo: { center: [clampedLng, clampedLat] }
-        });
+        coordSys.setCenter([clampedLng, clampedLat]);
+        coordSys.setZoom(z);
+        geoModel.setCenter([clampedLng, clampedLat]);
+        geoModel.setZoom(z);
+        (mainChart as any).updateTransform();
       }
-
-      syncSeriesTransform();
     });
 
     window.addEventListener('resize', () => mainChart.resize());
@@ -228,7 +198,13 @@
         lastZoomUpdate = time;
         const t = time / 1000;
         const breathe = INIT_ZOOM + Math.sin(t * 1.1) * 0.06;
-        mainChart.setOption({ geo: { zoom: breathe } });
+        const geoModel = (mainChart as any).getModel().getComponentModel('geo');
+        const coordSys = geoModel?.coordinateSystem;
+        if (coordSys) {
+          coordSys.setZoom(breathe);
+          geoModel.setZoom(breathe);
+          (mainChart as any).updateTransform();
+        }
       }
 
       if (time - lastJitter > 80) {
