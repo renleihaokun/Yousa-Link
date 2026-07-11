@@ -5,9 +5,11 @@ const { albums } = albumsData;
 ---
 
 <div class="timeline-section" id="timeline-section">
+  <div class="timeline-handle">
+    <div class="handle-bar"></div>
+  </div>
   <div class="timeline-header">
     <h2>专辑时间线</h2>
-    <div class="timeline-line"></div>
   </div>
   
   <div class="timeline-content">
@@ -91,10 +93,31 @@ const { albums } = albumsData;
   .timeline-section {
     position: relative;
     min-height: 100vh;
-    padding: 80px 40px;
+    padding: 0 40px 80px;
     margin-top: 100vh;
     background: rgba(181, 232, 247, 0.8);
     backdrop-filter: blur(10px);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  .timeline-handle {
+    display: flex;
+    justify-content: center;
+    padding: 16px 0 12px;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .handle-bar {
+    width: 56px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    transition: background 0.3s ease;
+  }
+
+  .timeline-handle:hover .handle-bar {
+    background: rgba(255, 255, 255, 0.3);
   }
 
   .timeline-header {
@@ -107,14 +130,6 @@ const { albums } = albumsData;
     font-weight: 700;
     color: var(--color-text);
     margin-bottom: 24px;
-  }
-
-  .timeline-line {
-    width: 4px;
-    height: 60px;
-    background: var(--gradient-pink);
-    margin: 0 auto;
-    border-radius: 2px;
   }
 
   .timeline-content {
