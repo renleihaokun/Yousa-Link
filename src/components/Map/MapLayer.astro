@@ -3,20 +3,6 @@
 
 <div id="map-container" class="map-container">
   <div id="map-chart" class="map-chart"></div>
-  <div class="airflow-layer">
-    <div class="speed-line s1"></div>
-    <div class="speed-line s2"></div>
-    <div class="speed-line s3"></div>
-    <div class="speed-line s4"></div>
-    <div class="speed-line s5"></div>
-    <div class="speed-line s6"></div>
-    <div class="speed-line s7"></div>
-    <div class="speed-line s8"></div>
-    <div class="speed-line s9"></div>
-    <div class="speed-line s10"></div>
-    <div class="speed-line s11"></div>
-    <div class="speed-line s12"></div>
-  </div>
 </div>
 
 <script>
@@ -227,6 +213,33 @@
     });
 
     window.addEventListener('resize', () => mainChart.resize());
+
+    startBreathing();
+  }
+
+  function startBreathing() {
+    let lastZoomUpdate = 0;
+    let lastJitter = 0;
+
+    function tick(time: number) {
+      requestAnimationFrame(tick);
+
+      if (time - lastZoomUpdate > 40) {
+        lastZoomUpdate = time;
+        const t = time / 1000;
+        const breathe = INIT_ZOOM + Math.sin(t * 1.1) * 0.06;
+        mainChart.setOption({ geo: { zoom: breathe } });
+      }
+
+      if (time - lastJitter > 80) {
+        lastJitter = time;
+        const jx = (Math.random() - 0.5) * 1.8;
+        const jy = (Math.random() - 0.5) * 1.2;
+        chartDom.style.transform = `translate(${jx}px, ${jy}px)`;
+      }
+    }
+
+    requestAnimationFrame(tick);
   }
 
   initMap();
@@ -253,56 +266,5 @@
     cursor: grabbing;
   }
 
-  .airflow-layer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    pointer-events: none;
-    overflow: hidden;
-    z-index: 1;
-  }
 
-  .speed-line {
-    position: absolute;
-    width: 1px;
-    height: 160px;
-    background: linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.2) 25%,
-      rgba(255, 255, 255, 0.2) 75%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    will-change: transform, opacity;
-    opacity: 0;
-  }
-
-  .s1  { top: 5%;  left: -10%; transform-origin: center top; animation: fly-left  1.4s linear infinite 0.0s; }
-  .s2  { top: 12%; left: 110%; transform-origin: center top; animation: fly-right 1.6s linear infinite 0.4s; }
-  .s3  { top: 20%; left: -10%; transform-origin: center top; animation: fly-left  1.2s linear infinite 0.9s; }
-  .s4  { top: 30%; left: 110%; transform-origin: center top; animation: fly-right 1.5s linear infinite 0.2s; }
-  .s5  { top: 38%; left: -10%; transform-origin: center top; animation: fly-left  1.8s linear infinite 1.3s; }
-  .s6  { top: 48%; left: 110%; transform-origin: center top; animation: fly-right 1.3s linear infinite 0.7s; }
-  .s7  { top: 55%; left: -10%; transform-origin: center top; animation: fly-left  1.6s linear infinite 1.8s; }
-  .s8  { top: 65%; left: 110%; transform-origin: center top; animation: fly-right 1.4s linear infinite 0.1s; }
-  .s9  { top: 72%; left: -10%; transform-origin: center top; animation: fly-left  1.7s linear infinite 1.1s; }
-  .s10 { top: 80%; left: 110%; transform-origin: center top; animation: fly-right 1.2s linear infinite 0.6s; }
-  .s11 { top: 88%; left: -10%; transform-origin: center top; animation: fly-left  1.5s linear infinite 1.5s; }
-  .s12 { top: 95%; left: 110%; transform-origin: center top; animation: fly-right 1.8s linear infinite 0.3s; }
-
-  @keyframes fly-left {
-    0%   { transform: translateX(0) rotate(25deg); opacity: 0; }
-    8%   { opacity: 1; }
-    88%  { opacity: 1; }
-    100% { transform: translateX(120vw) rotate(25deg); opacity: 0; }
-  }
-
-  @keyframes fly-right {
-    0%   { transform: translateX(0) rotate(-25deg); opacity: 0; }
-    8%   { opacity: 1; }
-    88%  { opacity: 1; }
-    100% { transform: translateX(-120vw) rotate(-25deg); opacity: 0; }
-  }
 </style>

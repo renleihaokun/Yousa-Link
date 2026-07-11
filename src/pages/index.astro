@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import MapLayer from '../components/Map/MapLayer.astro';
+import WindLayer from '../components/Map/WindLayer.astro';
 import LocationBadge from '../components/LocationBadge.astro';
 import HudPanel from '../components/HUD/HudPanel.astro';
 import TrainBanner from '../components/TrainScreen/TrainBanner.astro';
@@ -12,6 +13,7 @@ import ReturnButton from '../components/Navigation/ReturnButton.astro';
 
 <Layout>
   <MapLayer />
+  <WindLayer />
   <LocationBadge />
   <HudPanel />
   <TrainBanner />
