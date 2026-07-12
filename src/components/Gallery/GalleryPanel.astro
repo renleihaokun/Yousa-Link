@@ -13,13 +13,17 @@
     <h2>相册</h2>
     <button class="close-btn" id="close-gallery">✕</button>
   </div>
-  
-  <div class="gallery-featured">
-    <img id="featured-image" src="" alt="随机图片" />
-  </div>
-  
+
   <div class="gallery-grid" id="gallery-grid">
   </div>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-overlay" id="lightbox-overlay"></div>
+  <button class="lightbox-close" id="lightbox-close">✕</button>
+  <button class="lightbox-nav lightbox-prev" id="lightbox-prev">‹</button>
+  <button class="lightbox-nav lightbox-next" id="lightbox-next">›</button>
+  <img class="lightbox-image" id="lightbox-image" src="" alt="" />
 </div>
 
 <script>
@@ -27,16 +31,25 @@
   const panel = document.getElementById('gallery-panel');
   const closeBtn = document.getElementById('close-gallery');
   const grid = document.getElementById('gallery-grid');
-  const featured = document.getElementById('featured-image');
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImage = document.getElementById('lightbox-image') as HTMLImageElement;
+  const lightboxClose = document.getElementById('lightbox-close');
+  const lightboxPrev = document.getElementById('lightbox-prev');
+  const lightboxNext = document.getElementById('lightbox-next');
+  const lightboxOverlay = document.getElementById('lightbox-overlay');
 
-  const sampleImages = [
-    '/images/photo1.jpg',
-    '/images/photo2.jpg',
-    '/images/photo3.jpg',
-    '/images/photo4.jpg',
-    '/images/photo5.jpg',
-    '/images/photo6.jpg'
-  ];
+  let sampleImages: string[] = [];
+  let galleryImages: string[] = [];
+  let lightboxIndex = 0;
+
+  async function loadStickers() {
+    try {
+      const response = await fetch('/images/stickers.json');
+      sampleImages = await response.json();
+    } catch {
+      console.error('Failed to load stickers.json');
+    }
+  }
 
   function shuffleArray<T>(array: T[]): T[] {
     const shuffled = [...array];
@@ -47,23 +60,71 @@
     return shuffled;
   }
 
-  function loadGallery() {
-    const shuffled = shuffleArray(sampleImages);
-    
-    if (featured) {
-      featured.src = shuffled[0];
-    }
+  function openLightbox(index: number) {
+    if (!lightbox || !lightboxImage) return;
+    lightboxIndex = index;
+    lightboxImage.src = galleryImages[index];
+    lightboxImage.alt = `表情包 ${index + 1}`;
+    lightbox.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
 
-    if (grid) {
-      grid.innerHTML = '';
-      shuffled.forEach((img, index) => {
-        if (index === 0) return;
-        const div = document.createElement('div');
-        div.className = 'gallery-item';
-        div.innerHTML = `<img src="${img}" alt="照片 ${index}" loading="lazy" />`;
-        grid.appendChild(div);
-      });
+  function closeLightbox() {
+    if (!lightbox) return;
+    lightbox.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  function navigateLightbox(direction: number) {
+    if (galleryImages.length === 0) return;
+    lightboxIndex = (lightboxIndex + direction + galleryImages.length) % galleryImages.length;
+    lightboxImage.src = galleryImages[lightboxIndex];
+    lightboxImage.alt = `表情包 ${lightboxIndex + 1}`;
+  }
+
+  function getColumnCount(): number {
+    const w = window.innerWidth;
+    if (w < 480) return 2;
+    if (w < 640) return 3;
+    if (w < 860) return 4;
+    if (w < 1100) return 5;
+    return 6;
+  }
+
+  async function loadGallery() {
+    if (sampleImages.length === 0) {
+      await loadStickers();
     }
+    if (sampleImages.length === 0 || !grid) return;
+
+    galleryImages = shuffleArray(sampleImages);
+    const columnCount = getColumnCount();
+
+    grid.innerHTML = '';
+    galleryImages.forEach((img, index) => {
+      const div = document.createElement('div');
+      div.className = 'gallery-item';
+      div.style.setProperty('--i', String(index));
+
+      const inner = document.createElement('div');
+      inner.className = 'gallery-inner';
+
+      const col = index % columnCount;
+      const isEdge = col === 0 || col === columnCount - 1;
+      const maxTilt = isEdge ? 1.5 : 4;
+      const tilt = (Math.random() - 0.5) * 2 * maxTilt;
+      inner.style.setProperty('--tilt', `${tilt}deg`);
+
+      const imgEl = document.createElement('img');
+      imgEl.alt = `表情包 ${index + 1}`;
+      imgEl.loading = 'lazy';
+      imgEl.src = img;
+      imgEl.addEventListener('click', () => openLightbox(index));
+
+      inner.appendChild(imgEl);
+      div.appendChild(inner);
+      grid.appendChild(div);
+    });
   }
 
   edge?.addEventListener('click', () => {
@@ -76,9 +137,26 @@
     panel?.classList.remove('expanded');
     document.body.classList.remove('panel-open');
   });
+
+  lightboxClose?.addEventListener('click', closeLightbox);
+  lightboxOverlay?.addEventListener('click', closeLightbox);
+  lightboxPrev?.addEventListener('click', () => navigateLightbox(-1));
+  lightboxNext?.addEventListener('click', () => navigateLightbox(1));
+
+  document.addEventListener('keydown', (e) => {
+    if (lightbox?.style.display === 'flex') {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') navigateLightbox(-1);
+      if (e.key === 'ArrowRight') navigateLightbox(1);
+    }
+  });
 </script>
 
-<style>
+<style is:global>
+  body.panel-open {
+    overflow: hidden;
+  }
+
   .gallery-edge {
     position: fixed;
     left: 0;
@@ -111,7 +189,7 @@
     writing-mode: vertical-rl;
     font-size: 14px;
     font-weight: 500;
-    color: var(--color-text);
+    color: #333;
   }
 
   .edge-arrow {
@@ -135,6 +213,7 @@
     pointer-events: none;
     transform: translateX(-100%);
     transition: all 0.4s ease;
+    overflow: hidden;
   }
 
   .gallery-panel.expanded {
@@ -148,12 +227,13 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 32px;
+    flex-shrink: 0;
   }
 
   .gallery-header h2 {
     font-size: 24px;
     font-weight: 700;
-    color: var(--color-text);
+    color: #222;
   }
 
   .close-btn {
@@ -161,7 +241,7 @@
     border: none;
     font-size: 24px;
     cursor: pointer;
-    color: var(--color-text-light);
+    color: #666;
     transition: color 0.2s;
   }
 
@@ -169,45 +249,151 @@
     color: var(--color-pink);
   }
 
-  .gallery-featured {
-    width: 100%;
-    max-height: 50vh;
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    margin-bottom: 32px;
-    box-shadow: var(--shadow-card);
-  }
-
-  .gallery-featured img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
   .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    row-gap: 20px;
+    column-gap: 24px;
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px;
   }
 
   .gallery-item {
-    aspect-ratio: 1;
+    min-width: 0;
+    padding-bottom: 100%;
+    height: 0;
+    position: relative;
     border-radius: var(--radius-md);
     overflow: hidden;
     cursor: pointer;
-    transition: transform 0.2s;
-    box-shadow: var(--shadow-card);
+    background: rgba(0, 0, 0, 0.03);
+    animation: fadeInUp 0.4s ease both;
+    animation-delay: calc(var(--i) * 50ms);
+  }
+
+  .gallery-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: rgba(255, 255, 255, 0.55);
+    border: 2px solid rgba(255, 105, 180, 0.15);
+    border-radius: 12px;
+    transform: rotate(2deg);
   }
 
   .gallery-item:hover {
-    transform: scale(1.05);
+    box-shadow: 0 0 0 2px rgba(255, 105, 180, 0.5);
   }
 
-  .gallery-item img {
+  .gallery-inner {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    z-index: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    transform: rotate(var(--tilt, 0deg));
+  }
+
+  .gallery-inner img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    display: block;
+    border: 2px solid rgba(255, 105, 180, 0.25);
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lightbox-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(12px);
+  }
+
+  .lightbox-image {
+    position: relative;
+    max-width: 85vw;
+    max-height: 85vh;
+    object-fit: contain;
+    z-index: 1;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    z-index: 2;
+    background: none;
+    border: none;
+    font-size: 32px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .lightbox-close:hover {
+    color: #fff;
+  }
+
+  .lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    font-size: 48px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+    line-height: 1;
+  }
+
+  .lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  .lightbox-prev {
+    left: 24px;
+  }
+
+  .lightbox-next {
+    right: 24px;
   }
 </style>

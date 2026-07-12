@@ -3,10 +3,11 @@
   "type": "module",
   "version": "1.0.0",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
+    "dev": "node scripts/generate-stickers.mjs && astro dev",
+    "build": "node scripts/generate-stickers.mjs && astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "generate:stickers": "node scripts/generate-stickers.mjs"
   },
   "dependencies": {
     "astro": "^5.7.0",
