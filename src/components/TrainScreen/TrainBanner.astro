@@ -2,59 +2,174 @@
 import toursData from '../../data/tours.json';
 
 const { tours } = toursData;
-const nextTour = tours[0];
+
+const sorted = [...tours]
+  .map(t => ({ ...t, dateObj: new Date(t.date) }))
+  .sort((a, b) => a.dateObj - b.dateObj);
+
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const upcomingIdx = sorted.findIndex(t => t.dateObj >= today);
+const noUpcoming = upcomingIdx === -1;
+const startIdx = noUpcoming ? 0 : upcomingIdx;
+
+const hasTours = sorted.length > 0;
+const displayItems = !hasTours
+  ? [{ id: 'nest', from: '🪹', to: '鸟窝', dateDisplay: '暂无巡演', venue: '', isNest: true }]
+  : noUpcoming
+    ? [{ id: 'nest', from: '🪹', to: '鸟窝', dateDisplay: '暂无巡演', venue: '', isNest: true }, ...sorted]
+    : [...sorted.slice(startIdx), ...sorted.slice(0, startIdx)];
+
+const MAX_VISIBLE = 3;
+const OFFSET = 10;
+const W_STEP = 0.08;
+const B_STEP = 0.3;
+const CARD_H = 64;
+const GAP = 12;
+const HEADER_H = 44;
+const FOOTER_H = 40;
+const COUNT = displayItems.length;
+const PAD = 12;
+
+const stackedH = CARD_H + (Math.min(COUNT, MAX_VISIBLE) - 1) * OFFSET + PAD;
+const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD * 2;
 ---
 
 <div class="train-screen" id="train-screen">
-  <div class="banner card" id="train-banner">
-    <div class="banner-content">
-      <div class="route-info">
-        <span class="from">{nextTour.from}</span>
-        <span class="arrow">→</span>
-        <span class="to">{nextTour.to}</span>
-      </div>
-      <div class="date">{nextTour.dateDisplay}</div>
-    </div>
-    <div class="expand-hint">点击展开</div>
-  </div>
+  <div
+    class="card-stack"
+    id="card-stack"
+    style={`--stacked-h: ${stackedH}px; --expanded-h: ${expandedH}px;`}
+  >
+    {displayItems.map((item, i) => {
+      const si = Math.min(i, MAX_VISIBLE - 1);
+      const hidden = i >= MAX_VISIBLE;
+      const delay = i * 60;
+      const hdDelay = (MAX_VISIBLE - 1 + (i - MAX_VISIBLE + 1)) * 60;
 
-  <div class="schedule-panel card" id="schedule-panel">
-    <div class="panel-header">
-      <h2>2026 全年巡演时刻表</h2>
-      <button class="close-btn" id="close-schedule">✕</button>
-    </div>
-    <div class="schedule-list">
-      {tours.map((tour) => (
-        <div class="schedule-item">
-          <div class="item-date">{tour.dateDisplay}</div>
-          <div class="item-route">
-            <span class="item-from">{tour.from}</span>
-            <span class="item-arrow">→</span>
-            <span class="item-to">{tour.to}</span>
+      return (
+        <div
+          class={`tour-card${hidden ? ' stack-hidden' : ''}${item.isNest ? ' nest-card' : ''}`}
+          style={`
+            --stack-top: ${si * OFFSET}px;
+            --stack-left: ${si * 4}%;
+            --stack-width: calc(100% - ${si * (W_STEP * 100)}%);
+            --stack-bright: ${Math.max(0.2, 1 - si * B_STEP)};
+            --stack-z: ${COUNT - i};
+            --exp-top: ${HEADER_H + i * (CARD_H + GAP)}px;
+            --exp-left: 30px;
+            --exp-width: calc(100% - 60px);
+            --exp-bright: 1;
+            --exp-z: ${COUNT - i};
+            --delay: ${hidden ? hdDelay : delay}ms;
+          `}
+        >
+          <div class="card-body">
+            {item.isNest ? (
+              <div class="card-nest">
+                <span class="nest-icon">🪹</span>
+                <span class="nest-text">鸟窝</span>
+              </div>
+            ) : (
+              <>
+                <div class="card-info">
+                  <div class="card-route">
+                    <span class="card-from">{item.from}</span>
+                    <span class="card-arrow">→</span>
+                    <span class="card-to">{item.to}</span>
+                  </div>
+                  <div class="card-meta">
+                    <span class="card-date">{item.dateDisplay}</span>
+                    {item.venue && (
+                      <><span class="meta-sep">·</span><span class="card-venue">{item.venue}</span></>
+                    )}
+                  </div>
+                </div>
+                <div class="card-right">
+                  <div class="card-train">
+                    <span class="train-label">车次</span>
+                    <span class="train-value">{item.trainNumber || '鸢148'}</span>
+                  </div>
+                  <div class="card-waiting">
+                    <span class="waiting-label">候车室</span>
+                    <span class="waiting-value">{item.waitingRoom || '待定'}</span>
+                  </div>
+                  <div class="card-status">
+                    <span class="status-label">预计</span>
+                    <span class="status-value">正点</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-          <div class="item-status">{tour.venue}</div>
         </div>
-      ))}
+      );
+    })}
+
+    <div class="stack-footer" id="stack-footer">
+      <a href="https://github.com/renleihaokun/Yousa-Link" target="_blank" rel="noopener">GitHub</a>
+      <span>·</span>
+      <span>苏ICP备2026010399号-1</span>
+      <span>·</span>
+      <span>苏公网安备32059002007654号</span>
+      <span>·</span>
+      <a href="https://blog.haokun.me" target="_blank" rel="noopener">blog.haokun.me</a>
     </div>
   </div>
 </div>
 
 <script>
-  const banner = document.getElementById('train-banner');
-  const panel = document.getElementById('schedule-panel');
-  const closeBtn = document.getElementById('close-schedule');
+  const stack = document.getElementById('card-stack');
+  const footer = document.getElementById('stack-footer');
 
-  banner?.addEventListener('click', () => {
-    banner.classList.add('hidden');
-    panel?.classList.add('expanded');
+  if (!stack) throw new Error('card-stack not found');
+
+  function expand() {
+    if (stack.classList.contains('expanded')) return;
+    stack.classList.add('expanded');
+    footer?.classList.add('visible');
     document.body.classList.add('panel-open');
+  }
+
+  function collapse() {
+    if (!stack.classList.contains('expanded')) return;
+    stack.classList.remove('expanded');
+    footer?.classList.remove('visible');
+    document.body.classList.remove('panel-open');
+  }
+
+  const obs = new MutationObserver(() => {
+    if (!stack.classList.contains('expanded')) {
+      footer?.classList.remove('visible');
+    }
+  });
+  obs.observe(stack, { attributes: true, attributeFilter: ['class'] });
+
+  stack.addEventListener('click', () => {
+    if (!stack.classList.contains('expanded')) {
+      expand();
+    }
   });
 
-  closeBtn?.addEventListener('click', () => {
-    panel?.classList.remove('expanded');
-    banner?.classList.remove('hidden');
-    document.body.classList.remove('panel-open');
+  stack.querySelectorAll('.tour-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (stack.classList.contains('expanded')) {
+        e.stopPropagation();
+        collapse();
+      }
+    });
   });
+
+  document.addEventListener('click', (e) => {
+    if (!stack.classList.contains('expanded')) return;
+    
+    const target = e.target as HTMLElement;
+    if (!target.closest('.card-stack')) {
+      collapse();
+    }
+  });
+
+  window.__collapseTrainScreen = collapse;
 </script>
 
 <style>
@@ -66,146 +181,240 @@ const nextTour = tours[0];
     z-index: 200;
   }
 
-  .banner {
-    padding: 16px 32px;
+  .card-stack {
+    position: relative;
+    width: 440px;
+    height: var(--stacked-h);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    transition:
+      height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      background 0.35s ease,
+      border 0.35s ease;
     cursor: pointer;
-    transition: all 0.3s ease;
-    min-width: 320px;
   }
 
-  .banner:hover {
-    transform: scale(1.02);
-    box-shadow: var(--shadow-glow);
+  .card-stack.expanded {
+    height: var(--expanded-h);
+    background: rgba(10, 10, 15, 0.5);
+    border: 1px solid rgba(255, 105, 180, 0.12);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    cursor: pointer;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  .banner.hidden {
+  .card-stack.expanded::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tour-card {
+    position: absolute;
+    padding: 10px 16px;
+    background: rgba(20, 22, 30, 0.75);
+    border: 1px solid rgba(255, 105, 180, 0.35);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(24px);
+    box-shadow: var(--shadow-card);
+    transition:
+      top 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      filter 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.4s ease;
+    transition-delay: var(--delay, 0ms);
+  }
+
+  .card-stack:not(.expanded) .tour-card {
+    top: var(--stack-top);
+    left: var(--stack-left);
+    width: var(--stack-width);
+    filter: brightness(var(--stack-bright));
+    z-index: var(--stack-z);
+  }
+
+  .card-stack:not(.expanded) .tour-card:nth-child(4) {
+    filter: brightness(var(--stack-bright)) blur(0.5px);
+    border: 1px solid rgba(255, 105, 180, 0.35);
+  }
+
+  .card-stack:not(.expanded) .tour-card.stack-hidden {
     opacity: 0;
     pointer-events: none;
-    transform: translateY(-20px);
   }
 
-  .banner-content {
+  .card-stack.expanded .tour-card {
+    top: var(--exp-top);
+    left: var(--exp-left);
+    width: var(--exp-width);
+    filter: brightness(var(--exp-bright));
+    z-index: var(--exp-z);
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .card-stack.expanded .tour-card:hover {
+    border-color: var(--color-pink);
+    background: rgba(255, 105, 180, 0.18);
+  }
+
+  .card-body {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 24px;
+    align-items: center;
+    gap: 4px;
   }
 
-  .route-info {
+  .card-info {
     display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .card-right {
+    display: flex;
+    gap: 16px;
     align-items: center;
-    gap: 12px;
-    font-size: 18px;
+  }
+
+  .status-label {
+    color: var(--color-text-light);
+  }
+
+  .status-value {
+    color: #4ade80;
     font-weight: 600;
   }
 
-  .arrow {
-    color: var(--color-pink);
-  }
-
-  .date {
-    font-family: var(--font-pixel);
-    font-size: 12px;
-    color: var(--color-purple);
-  }
-
-  .expand-hint {
-    font-size: 11px;
-    color: var(--color-text-light);
-    text-align: center;
-    margin-top: 8px;
-  }
-
-  .schedule-panel {
-    position: fixed;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%) translateY(-20px);
-    width: 500px;
-    max-height: 70vh;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 24px;
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.4s ease;
-  }
-
-  .schedule-panel.expanded {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  .panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-  }
-
-  .panel-header h2 {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--color-text);
-  }
-
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: var(--color-text-light);
-    transition: color 0.2s;
-  }
-
-  .close-btn:hover {
-    color: var(--color-pink);
-  }
-
-  .schedule-list {
+  .card-train,
+  .card-waiting,
+  .card-status {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-  }
-
-  .schedule-item {
-    display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px;
-    background: rgba(155, 89, 182, 0.05);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(155, 89, 182, 0.1);
-    transition: all 0.2s;
-  }
-
-  .schedule-item:hover {
-    background: rgba(255, 105, 180, 0.1);
-    border-color: var(--color-pink);
-  }
-
-  .item-date {
-    font-family: var(--font-pixel);
+    gap: 2px;
     font-size: 11px;
-    color: var(--color-purple);
+  }
+
+  .card-train {
+    min-width: 50px;
+  }
+
+  .card-waiting {
     min-width: 80px;
   }
 
-  .item-route {
-    flex: 1;
+  .card-status {
+    min-width: 50px;
+  }
+
+  .train-label,
+  .waiting-label {
+    color: var(--color-text-light);
+  }
+
+  .train-value {
+    color: var(--color-pink);
+    font-weight: 600;
+  }
+
+  .waiting-value {
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  .card-route {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
   }
 
-  .item-arrow {
+  .card-from {
+    color: var(--color-text-light);
+  }
+
+  .card-arrow {
     color: var(--color-pink);
   }
 
-  .item-status {
-    font-size: 12px;
+  .card-to {
+    color: var(--color-text);
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
     color: var(--color-text-light);
+  }
+
+  .card-date {
+    font-family: var(--font-pixel);
+    color: var(--color-purple);
+  }
+
+  .meta-sep {
+    color: var(--color-text-light);
+  }
+
+  .card-venue {
+    color: var(--color-text-light);
+  }
+
+  .card-nest {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nest-icon {
+    font-size: 18px;
+  }
+
+  .nest-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .stack-footer {
+    position: absolute;
+    left: 30px;
+    width: calc(100% - 60px);
+    bottom: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    padding: 0 16px;
+    font-size: 10px;
+    color: var(--color-text-light);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease 0.3s;
+    flex-wrap: wrap;
+  }
+
+  .stack-footer.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .stack-footer a {
+    color: var(--color-purple);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .stack-footer a:hover {
+    color: var(--color-pink);
   }
 </style>

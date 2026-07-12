@@ -2,66 +2,80 @@
   "tours": [
     {
       "id": "chengdu",
-      "from": "成都",
-      "to": "北京",
+      "from": "鸟窝",
+      "to": "成都",
       "date": "2026-07-18",
       "dateDisplay": "7月18日",
       "status": "upcoming",
-      "venue": "成都站"
+      "venue": "成都场",
+      "trainNumber": "鸢148",
+      "waitingRoom": "绿演中心"
     },
     {
       "id": "beijing",
-      "from": "北京",
-      "to": "杭州",
+      "from": "成都",
+      "to": "北京",
       "date": "2026-08-01",
       "dateDisplay": "8月1日",
       "status": "upcoming",
-      "venue": "北京站"
+      "venue": "北京场",
+      "trainNumber": "鸢148",
+      "waitingRoom": "RMMF·789店"
     },
     {
       "id": "hangzhou",
-      "from": "杭州",
-      "to": "广州",
+      "from": "北京",
+      "to": "杭州",
       "date": "2026-08-15",
       "dateDisplay": "8月15日",
       "status": "upcoming",
-      "venue": "杭州站"
+      "venue": "杭州场",
+      "trainNumber": "鸢148",
+      "waitingRoom": "待定"
     },
     {
       "id": "guangzhou",
-      "from": "广州",
-      "to": "厦门",
+      "from": "杭州",
+      "to": "广州",
       "date": "2026-08-22",
       "dateDisplay": "8月22日",
       "status": "upcoming",
-      "venue": "广州站"
+      "venue": "广州场",
+      "trainNumber": "鸢148",
+      "waitingRoom": "待定"
     },
     {
       "id": "xiamen",
-      "from": "厦门",
-      "to": "武汉",
+      "from": "广州",
+      "to": "厦门",
       "date": "2026-09-12",
       "dateDisplay": "9月12日",
       "status": "upcoming",
-      "venue": "厦门站"
+      "venue": "厦门场",
+      "trainNumber": "鸢148",
+      "waitingRoom": "待定"
     },
     {
       "id": "wuhan",
-      "from": "武汉",
-      "to": "上海",
+      "from": "厦门",
+      "to": "武汉",
       "date": "2026-09-26",
       "dateDisplay": "9月26日",
       "status": "upcoming",
-      "venue": "武汉站"
+      "venue": "武汉场",
+      "trainNumber": "鸢148",
+      "waitingRoom": "待定"
     },
     {
       "id": "shanghai",
-      "from": "上海",
-      "to": "???",
+      "from": "武汉",
+      "to": "上海",
       "date": "2026-10-10",
-      "dateDisplay": "待定",
+      "dateDisplay": "那时候",
       "status": "upcoming",
-      "venue": "上海站（特殊场次）"
+      "venue": "上海场",
+      "trainNumber": "鸢148",
+      "waitingRoom": "待定"
     }
   ]
 }
