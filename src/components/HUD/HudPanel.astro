@@ -3,18 +3,24 @@
 
 <div class="hud-panel glass">
   <div class="network-section">
-    <span class="info-label">地址：</span>
+    <span class="info-label">当前地址：</span>
     <span class="info-value" id="ip-address">检测中...</span>
   </div>
 
   <div class="divider"></div>
 
   <div class="player-section">
-    <div class="song-title" id="song-title">加载中...</div>
-    <div class="control-buttons">
-      <button class="ctrl-btn" id="prev-btn">⏮</button>
-      <button class="ctrl-btn play-btn" id="play-btn">▶</button>
-      <button class="ctrl-btn" id="next-btn">⏭</button>
+    <div class="player-row">
+      <img class="song-cover" id="song-cover" src="" alt="封面" />
+      <div class="song-title" id="song-title">加载中...</div>
+      <div class="control-buttons">
+        <button class="ctrl-btn" id="prev-btn">⏮</button>
+        <button class="ctrl-btn play-btn" id="play-btn">▶</button>
+        <button class="ctrl-btn" id="next-btn">⏭</button>
+      </div>
+    </div>
+    <div class="progress-bar" id="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
     </div>
   </div>
 </div>
@@ -34,7 +40,7 @@
 
   let isPlaying = false;
   let currentAudio: HTMLAudioElement | null = null;
-  let songList: Array<{ name: string; url: string }> = [];
+  let songList: Array<{ name: string; url: string; pic: string }> = [];
   let currentIndex = 0;
 
   async function loadPlaylist() {
@@ -46,7 +52,8 @@
         .filter((s: any) => s.url && s.url !== '' && s.url !== 'null')
         .map((song: any) => ({
           name: song.name || song.title || '未知',
-          url: song.url
+          url: song.url,
+          pic: song.pic || ''
         }));
       updateSongDisplay();
     } catch {
@@ -56,7 +63,16 @@
 
   function updateSongDisplay() {
     if (songList.length === 0) return;
-    document.getElementById('song-title')!.textContent = songList[currentIndex].name;
+    const song = songList[currentIndex];
+    document.getElementById('song-title')!.textContent = song.name;
+    const cover = document.getElementById('song-cover') as HTMLImageElement;
+    if (cover && song.pic) {
+      cover.classList.remove('loaded');
+      cover.src = song.pic;
+      cover.onload = () => {
+        cover.classList.add('loaded');
+      };
+    }
   }
 
   function createAudio() {
@@ -64,6 +80,7 @@
     currentAudio = new Audio(songList[currentIndex].url);
     currentAudio.addEventListener('ended', playNext);
     currentAudio.addEventListener('error', playNext);
+    currentAudio.addEventListener('timeupdate', updateProgress);
   }
 
   function safePlay(audio: HTMLAudioElement) {
@@ -73,6 +90,24 @@
     });
   }
 
+  function updateProgress() {
+    if (!currentAudio) return;
+    const fill = document.getElementById('progress-fill');
+    if (fill && currentAudio.duration) {
+      const percent = (currentAudio.currentTime / currentAudio.duration) * 100;
+      fill.style.width = `${percent}%`;
+    }
+  }
+
+  function setPlayingState(playing: boolean) {
+    const cover = document.getElementById('song-cover');
+    if (playing) {
+      cover?.classList.add('playing');
+    } else {
+      cover?.classList.remove('playing');
+    }
+  }
+
   document.getElementById('play-btn')?.addEventListener('click', () => {
     if (songList.length === 0) return;
 
@@ -80,17 +115,21 @@
       currentAudio?.pause();
       document.getElementById('play-btn')!.textContent = '▶';
       isPlaying = false;
+      setPlayingState(false);
     } else {
       if (!currentAudio) createAudio();
       safePlay(currentAudio!);
       document.getElementById('play-btn')!.textContent = '⏸';
       isPlaying = true;
+      setPlayingState(true);
     }
   });
 
   function playNext() {
     currentIndex = (currentIndex + 1) % songList.length;
     updateSongDisplay();
+    const fill = document.getElementById('progress-fill');
+    if (fill) fill.style.width = '0%';
     if (currentAudio) {
       createAudio();
       if (isPlaying) safePlay(currentAudio!);
@@ -102,10 +141,20 @@
   document.getElementById('prev-btn')?.addEventListener('click', () => {
     currentIndex = (currentIndex - 1 + songList.length) % songList.length;
     updateSongDisplay();
+    const fill = document.getElementById('progress-fill');
+    if (fill) fill.style.width = '0%';
     if (currentAudio) {
       createAudio();
       if (isPlaying) safePlay(currentAudio!);
     }
+  });
+
+  document.getElementById('progress-bar')?.addEventListener('click', (e) => {
+    if (!currentAudio || !currentAudio.duration) return;
+    const bar = e.currentTarget as HTMLElement;
+    const rect = bar.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    currentAudio.currentTime = ratio * currentAudio.duration;
   });
 
   loadPlaylist();
@@ -148,7 +197,7 @@
   .divider {
     border: none;
     border-top: 1px dashed rgba(155, 89, 182, 0.3);
-    margin: 12px 0;
+    margin: 8px 0;
   }
 
   .player-section {
@@ -157,7 +206,43 @@
     gap: 10px;
   }
 
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .song-cover {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 105, 180, 0.4);
+    flex-shrink: 0;
+    animation: spin 8s linear infinite;
+    animation-play-state: paused;
+    background: #2a2a2a;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .song-cover.playing {
+    animation-play-state: running;
+  }
+
+  .song-cover.loaded {
+    opacity: 1;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   .song-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 120px;
     font-size: 12px;
     font-weight: 400;
     color: var(--color-text-light);
@@ -168,8 +253,11 @@
 
   .control-buttons {
     display: flex;
-    justify-content: space-between;
-    padding: 0 8px;
+    flex: 1;
+    min-width: 55px;
+    max-width: 110px;
+    justify-content: space-evenly;
+    padding: 0;
   }
 
   .ctrl-btn {
@@ -187,5 +275,20 @@
 
   .play-btn {
     color: var(--color-pink);
+  }
+
+  .progress-bar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: #FF69B4;
+    width: 0%;
+    transition: width 0.1s linear;
   }
 </style>
