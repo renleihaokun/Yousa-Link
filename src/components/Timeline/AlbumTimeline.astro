@@ -203,6 +203,16 @@ const { albums } = albumsData;
     left: -8px;
   }
 
+  .timeline-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-top: 2px solid rgba(220, 240, 255, 0.7);
+    pointer-events: none;
+    z-index: 10;
+  }
+
   .timeline-card {
     padding: 20px;
     transition: transform 0.3s;
