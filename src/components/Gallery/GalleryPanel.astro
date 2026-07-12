@@ -258,7 +258,14 @@
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     padding: 4px;
+  }
+
+  .gallery-grid::-webkit-scrollbar {
+    display: none;
   }
 
   .gallery-item {

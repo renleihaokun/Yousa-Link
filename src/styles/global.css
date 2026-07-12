@@ -39,6 +39,16 @@ html {
   color: var(--color-text);
   background: #000;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
+html:has(> body.panel-open) {
+  overflow: hidden;
 }
 
 body {
