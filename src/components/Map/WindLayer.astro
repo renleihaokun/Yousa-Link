@@ -28,6 +28,8 @@
   ];
 
   const particles = [];
+  let turbMultiplier = 1;
+  let turbSpeedTarget = 1;
 
   function spindleT(y) {
     return MID_T0 + (MID_T1 - MID_T0) * Math.max(0, Math.min(1, y / H));
@@ -158,10 +160,12 @@
     const dt = Math.min(time - lastTime, 50);
     lastTime = time;
 
+    turbMultiplier += (turbSpeedTarget - turbMultiplier) * 0.05;
+
     ctx.clearRect(0, 0, W, H);
 
     for (const p of particles) {
-      updateParticle(p, dt);
+      updateParticle(p, dt * turbMultiplier);
       drawParticle(p);
     }
 
@@ -169,6 +173,8 @@
   }
 
   requestAnimationFrame(animate);
+  window.addEventListener('flight-turbulence', () => { turbSpeedTarget = 2.8; });
+  window.addEventListener('flight-turbulence-end', () => { turbSpeedTarget = 1; });
 </script>
 
 <style>
