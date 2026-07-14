@@ -107,13 +107,23 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     })}
 
     <div class="stack-footer" id="stack-footer">
-      <a href="https://github.com/renleihaokun/Yousa-Link" target="_blank" rel="noopener">GitHub</a>
-      <span>·</span>
-      <span>苏ICP备2026010399号-1</span>
-      <span>·</span>
-      <span>苏公网安备32059002007654号</span>
-      <span>·</span>
-      <a href="https://blog.haokun.me" target="_blank" rel="noopener">blog.haokun.me</a>
+      <div class="footer-row">
+        <a href="https://github.com/renleihaokun/Yousa-Link" target="_blank" rel="noopener">GitHub</a>
+        <span>·</span>
+        <span class="footer-version">v0.1</span>
+        <span>·</span>
+        <a href="https://blog.haokun.me" target="_blank" rel="noopener">blog.haokun.me</a>
+      </div>
+      <div class="footer-row footer-beian">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">
+          <img src="/assets/beian/foot-icp.png" class="beian-icon" alt="ICP" />
+          <span>苏ICP备2026010399号-1</span>
+        </a>
+        <a href="https://beian.mps.gov.cn/#/query/webSearch?code=32059002007654" target="_blank" rel="noopener">
+          <img src="/assets/beian/foot-ga.png" class="beian-icon" alt="公安备案" />
+          <span>苏公网安备32059002007654号</span>
+        </a>
+      </div>
     </div>
   </div>
 </div>
@@ -391,16 +401,35 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     width: calc(100% - 60px);
     bottom: 12px;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     padding: 0 16px;
     font-size: 10px;
     color: var(--color-text-light);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.4s ease 0.3s;
-    flex-wrap: wrap;
+  }
+
+  .footer-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .footer-beian a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .beian-icon {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
   }
 
   .stack-footer.visible {

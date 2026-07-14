@@ -44,7 +44,7 @@
   async function initMap() {
     const [neighborsRes, chinaRes] = await Promise.all([
       fetch('/neighbors.geo.json'),
-      fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+      fetch('/china.geo.json')
     ]);
     const neighborsGeo = await neighborsRes.json();
     const chinaGeo = await chinaRes.json();
