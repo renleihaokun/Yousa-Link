@@ -224,7 +224,7 @@
         const ms = time / 1000;
         const elapsed = time - phaseStart;
 
-        // 微颤放大 —— 漂移期后段起风，用大幅微颤桥接湍流
+        // 微颤放大 —— 漂移期后段起风，湍流期保持高幅度再缓慢退去
         let targetScale = 1;
         if (phase === 'drift') {
           const progress = Math.min(elapsed / curDriftDuration, 1);
@@ -232,8 +232,13 @@
             const p = (progress - WINDUP_START) / (1 - WINDUP_START);
             targetScale = 1 + (WINDUP_MAX - 1) * p;
           }
+        } else if (elapsed < TURB_FADE_IN) {
+          targetScale = WINDUP_MAX;
+        } else {
+          const p = Math.min((elapsed - TURB_FADE_IN) / 1000, 1);
+          targetScale = WINDUP_MAX + (1 - WINDUP_MAX) * p;
         }
-        microScale += (targetScale - microScale) * 0.08;
+        microScale += (targetScale - microScale) * (phase === 'drift' ? 0.08 : 0.12);
 
         const microX = (MICRO_AX[0] * Math.sin(ms * MICRO_FX[0] + MICRO_PX[0])
                      +  MICRO_AX[1] * Math.sin(ms * MICRO_FX[1] + MICRO_PX[1])) * microScale;
@@ -259,9 +264,8 @@
           const decay = Math.exp(-progress * TURB_DECAY * TURB_FREQ * 2);
           const angle = progress * TURB_FREQ * 2 * Math.PI;
 
-          // 淡入：平方缓出，前段几乎不起
-          const rawFade = Math.min(elapsed, TURB_FADE_IN) / TURB_FADE_IN;
-          const fadeIn = rawFade * rawFade;
+          // 淡入：线性，从第一帧起平稳增长
+          const fadeIn = Math.min(elapsed, TURB_FADE_IN) / TURB_FADE_IN;
 
           // 淡出：最后 20% 平滑归零
           const endFade = progress >= 1 - TURB_FADE_OUT_R
