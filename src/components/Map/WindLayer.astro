@@ -79,7 +79,7 @@
 
   function updateParticle(p, dt) {
     const t = spindleT(p.y);
-    const progress = t - MID_T0 / (MID_T1 - MID_T0);
+    const progress = (t - MID_T0) / (MID_T1 - MID_T0);
 
     const targetX = targetXFn(p.lane, t);
     p.x += (targetX - p.x) * SPRING * dt;
@@ -173,7 +173,7 @@
   }
 
   requestAnimationFrame(animate);
-  window.addEventListener('flight-turbulence', () => { turbSpeedTarget = 2.8; });
+  window.addEventListener('flight-turbulence', () => { turbSpeedTarget = 1.25; });
   window.addEventListener('flight-turbulence-end', () => { turbSpeedTarget = 1; });
 </script>
 
