@@ -44,8 +44,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     {displayItems.map((item, i) => {
       const si = Math.min(i, MAX_VISIBLE - 1);
       const hidden = i >= MAX_VISIBLE;
-      const delay = i * 60;
-      const hdDelay = (MAX_VISIBLE - 1 + (i - MAX_VISIBLE + 1)) * 60;
+      const expandDelay = si * 42;
+      const collapseDelay = Math.max(0, MAX_VISIBLE - 1 - si) * 42;
 
       return (
         <div
@@ -61,7 +61,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
             --exp-width: calc(100% - 60px);
             --exp-bright: 1;
             --exp-z: ${COUNT - i};
-            --delay: ${hidden ? hdDelay : delay}ms;
+            --expand-delay: ${expandDelay}ms;
+            --collapse-delay: ${collapseDelay}ms;
           `}
         >
           <div class="card-body">
@@ -134,9 +135,31 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   if (!stack) throw new Error('card-stack not found');
 
+  let reboundTimer: number | undefined;
+
+  let stateTimer: number | undefined;
+
+  function playRebound(type: 'expand' | 'collapse') {
+    window.clearTimeout(reboundTimer);
+    window.clearTimeout(stateTimer);
+    stack.classList.remove('rebounding');
+    stack.classList.toggle('is-expanding', type === 'expand');
+    stack.classList.toggle('is-collapsing', type === 'collapse');
+    requestAnimationFrame(() => {
+      stack.classList.add('rebounding');
+      reboundTimer = window.setTimeout(() => {
+        stack.classList.remove('rebounding');
+      }, 720);
+      stateTimer = window.setTimeout(() => {
+        stack.classList.remove('is-expanding', 'is-collapsing');
+      }, 760);
+    });
+  }
+
   function expand() {
     if (stack.classList.contains('expanded')) return;
     stack.classList.add('expanded');
+    playRebound('expand');
     footer?.classList.add('visible');
     document.body.classList.add('panel-open');
   }
@@ -144,6 +167,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   function collapse() {
     if (!stack.classList.contains('expanded')) return;
     stack.classList.remove('expanded');
+    playRebound('collapse');
     footer?.classList.remove('visible');
     document.body.classList.remove('panel-open');
   }
@@ -198,11 +222,15 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--radius-lg);
+    --spring: cubic-bezier(0.24, 1.08, 0.34, 1);
+    --spring-soft: cubic-bezier(0.22, 1.03, 0.34, 1);
     transition:
-      height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      height 0.54s var(--spring),
       background 0.35s ease,
       border 0.35s ease;
     cursor: pointer;
+    transform-origin: top center;
+    will-change: height, transform;
   }
 
   .card-stack.expanded {
@@ -229,12 +257,14 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     backdrop-filter: blur(24px);
     box-shadow: var(--shadow-card);
     transition:
-      top 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-      left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-      width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-      filter 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+      top 0.54s var(--spring),
+      left 0.54s var(--spring),
+      width 0.54s var(--spring),
+      filter 0.5s var(--spring-soft),
       opacity 0.4s ease;
-    transition-delay: var(--delay, 0ms);
+    transition-delay: 0ms;
+    transform-origin: center;
+    will-change: top, left, width, transform;
   }
 
   .card-stack:not(.expanded) .tour-card {
@@ -266,9 +296,50 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     cursor: pointer;
   }
 
+  .card-stack.is-expanding .tour-card {
+    transition-delay: var(--expand-delay, 0ms);
+  }
+
+  .card-stack.is-collapsing .tour-card {
+    transition-delay: var(--collapse-delay, 0ms);
+  }
+
   .card-stack.expanded .tour-card:hover {
     border-color: var(--color-pink);
     background: rgba(255, 105, 180, 0.18);
+  }
+
+  .card-stack.rebounding {
+    animation: stack-rebound 0.62s var(--spring-soft) both;
+  }
+
+  .card-stack.is-collapsing.rebounding {
+    animation: stack-settle 0.54s var(--spring-soft) both;
+  }
+
+  .card-stack.is-expanding.rebounding .tour-card {
+    animation: card-rebound 0.58s var(--spring-soft) both;
+    animation-delay: var(--expand-delay, 0ms);
+  }
+
+  @keyframes stack-rebound {
+    0% { transform: scaleY(0.992); }
+    42% { transform: scaleY(1.012); }
+    70% { transform: scaleY(0.997); }
+    100% { transform: scaleY(1); }
+  }
+
+  @keyframes stack-settle {
+    0% { transform: translateY(-2px) scaleY(1.004); }
+    55% { transform: translateY(1px) scaleY(0.998); }
+    100% { transform: translateY(0) scaleY(1); }
+  }
+
+  @keyframes card-rebound {
+    0% { transform: translateY(4px) scale(0.992); }
+    45% { transform: translateY(-3px) scale(1.006); }
+    72% { transform: translateY(1px) scale(0.998); }
+    100% { transform: translateY(0) scale(1); }
   }
 
   .card-body {
