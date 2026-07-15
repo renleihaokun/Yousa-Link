@@ -1,33 +1,41 @@
 :root {
   --color-bg: #000000;
   --color-bg-dark: #111111;
-  --color-pink: #FF69B4;
-  --color-pink-light: #FFB6D9;
-  --color-purple: #9B59B6;
-  --color-purple-light: #C39BD3;
+  --color-pink: #ea95b3;
+  --color-pink-light: #edcbda;
+  --color-purple: #b2adfa;
+  --color-purple-light: #e7d5e4;
   --color-yellow: #FFD700;
   --color-text: #E0E0E0;
   --color-text-light: #888888;
   --color-white: #FFFFFF;
   --color-card-bg: rgba(255, 255, 255, 0.08);
-  --color-card-border: rgba(255, 105, 180, 0.3);
-  --color-glow: rgba(255, 105, 180, 0.6);
+  --color-card-border: rgba(234, 149, 179, 0.3);
+  --color-glow: rgba(234, 149, 179, 0.6);
 
   /* 主题蓝 */
-  --color-blue: #B5E8F7;
-  --color-blue-light: #E0F4FF;
-  --gradient-blue: linear-gradient(135deg, #B5E8F7 0%, #4A90E2 100%);
-  --color-blue-95: rgba(181, 232, 247, 0.95);
-  --color-blue-80: rgba(181, 232, 247, 0.8);
-  --color-card-border-blue: rgba(181, 232, 247, 0.3);
-  --color-glow-blue: rgba(181, 232, 247, 0.6);
-  --shadow-glow-blue: 0 0 20px rgba(181, 232, 247, 0.4);
+  --color-blue: #a4d3eb;
+  --color-blue-light: #b9e4ee;
+  --gradient-blue: linear-gradient(135deg, #a4d3eb 0%, #4A90E2 100%);
+  --color-blue-95: rgba(164, 211, 235, 0.95);
+  --color-blue-80: rgba(164, 211, 235, 0.8);
+  --color-card-border-blue: rgba(164, 211, 235, 0.3);
+  --color-glow-blue: rgba(164, 211, 235, 0.6);
+  --shadow-glow-blue: 0 0 20px rgba(164, 211, 235, 0.4);
 
-  --gradient-pink: linear-gradient(135deg, #FF69B4 0%, #9B59B6 100%);
+  --gradient-pink: linear-gradient(135deg, #ea95b3 0%, #b2adfa 100%);
   --gradient-bg: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
 
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 20px rgba(255, 105, 180, 0.4);
+  --shadow-glow: 0 0 20px rgba(234, 149, 179, 0.4);
+
+  /* 海报辅助色 */
+  --color-accent-cyan: #5fb0d2;
+  --color-accent-blue: #41b2d5;
+  --color-accent-pink: #edcbda;
+  --color-accent-lavender: #e7d5e4;
+  --color-accent-sky: #b9e4ee;
+  --color-accent-gold: #fcd550;
 
   --radius-sm: 8px;
   --radius-md: 16px;
