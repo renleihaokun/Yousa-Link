@@ -7,6 +7,7 @@
 
 <script>
   import * as echarts from 'echarts';
+  import { config } from '../../config';
 
   const cities = [
     { name: '成都', value: [104.0668, 30.5728] },
@@ -182,7 +183,9 @@
 
     window.addEventListener('resize', () => mainChart.resize());
 
-    startGroundStream();
+    if (config.effects.mapShake) {
+      startGroundStream();
+    }
 
     function startGroundStream() {
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
