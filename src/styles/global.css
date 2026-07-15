@@ -13,6 +13,16 @@
   --color-card-border: rgba(255, 105, 180, 0.3);
   --color-glow: rgba(255, 105, 180, 0.6);
 
+  /* 主题蓝 */
+  --color-blue: #B5E8F7;
+  --color-blue-light: #E0F4FF;
+  --gradient-blue: linear-gradient(135deg, #B5E8F7 0%, #4A90E2 100%);
+  --color-blue-95: rgba(181, 232, 247, 0.95);
+  --color-blue-80: rgba(181, 232, 247, 0.8);
+  --color-card-border-blue: rgba(181, 232, 247, 0.3);
+  --color-glow-blue: rgba(181, 232, 247, 0.6);
+  --shadow-glow-blue: 0 0 20px rgba(181, 232, 247, 0.4);
+
   --gradient-pink: linear-gradient(135deg, #FF69B4 0%, #9B59B6 100%);
   --gradient-bg: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
 

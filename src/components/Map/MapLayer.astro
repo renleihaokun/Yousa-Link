@@ -9,6 +9,9 @@
   import * as echarts from 'echarts';
   import { config } from '../../config';
 
+  // 主题蓝色值
+  const THEME_BLUE = '#B5E8F7';
+
   const cities = [
     { name: '成都', value: [104.0668, 30.5728] },
     { name: '北京', value: [116.4074, 39.9042] },
@@ -90,12 +93,12 @@
         roam: 'move',
         zoom: INIT_ZOOM,
         center: CENTER,
-        label: { show: false, color: '#B5E8F7' },
+        label: { show: false, color: THEME_BLUE },
         emphasis: {
           disabled: false,
           label: {
             show: true,
-            color: '#B5E8F7',
+            color: THEME_BLUE,
             fontSize: 12
           },
           itemStyle: {
