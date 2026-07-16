@@ -1,20 +1,20 @@
 ---
 ---
 
-<div class="gallery-edge" id="gallery-edge">
-  <div class="edge-indicator">
-    <span class="edge-text">相册</span>
-    <span class="edge-arrow">›</span>
-  </div>
-</div>
-
-<div class="gallery-panel" id="gallery-panel">
-  <div class="gallery-header">
-    <h2>相册</h2>
-    <button class="close-btn" id="close-gallery">✕</button>
+<div class="gallery-container" id="gallery-container">
+  <div class="gallery-tab" id="gallery-tab">
+    <img class="tab-preview" id="tab-preview" src="" alt="" />
+    <span class="tab-arrow" id="tab-arrow">›</span>
   </div>
 
-  <div class="gallery-grid" id="gallery-grid">
+  <img class="hero-image" id="hero-image" src="" alt="" />
+
+  <div class="panel-body" id="panel-body">
+    <div class="gallery-header">
+      <span class="header-arrow">›</span>
+      <h2>看看鸢</h2>
+    </div>
+    <div class="gallery-grid" id="gallery-grid"></div>
   </div>
 </div>
 
@@ -26,11 +26,18 @@
   <img class="lightbox-image" id="lightbox-image" src="" alt="" />
 </div>
 
+<div class="close-edge" id="close-edge">
+  <span class="close-arrow">‹</span>
+</div>
+
 <script>
-  const edge = document.getElementById('gallery-edge');
-  const panel = document.getElementById('gallery-panel');
-  const closeBtn = document.getElementById('close-gallery');
+  const container = document.getElementById('gallery-container');
+  const tab = document.getElementById('gallery-tab');
+  const tabPreview = document.getElementById('tab-preview') as HTMLImageElement;
+  const heroImage = document.getElementById('hero-image') as HTMLImageElement;
+  const panelBody = document.getElementById('panel-body');
   const grid = document.getElementById('gallery-grid');
+  const closeEdge = document.getElementById('close-edge');
   const lightbox = document.getElementById('lightbox');
   const lightboxImage = document.getElementById('lightbox-image') as HTMLImageElement;
   const lightboxClose = document.getElementById('lightbox-close');
@@ -41,6 +48,8 @@
   let sampleImages: string[] = [];
   let galleryImages: string[] = [];
   let lightboxIndex = 0;
+  let isExpanded = false;
+  let previewIndex = -1;
 
   async function loadStickers() {
     try {
@@ -58,6 +67,21 @@
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+  }
+
+  function pickPreview() {
+    if (sampleImages.length === 0) return;
+    let idx: number;
+    do {
+      idx = Math.floor(Math.random() * sampleImages.length);
+    } while (idx === previewIndex && sampleImages.length > 1);
+    previewIndex = idx;
+    return sampleImages[idx];
+  }
+
+  function updatePreview() {
+    const src = pickPreview();
+    if (src) tabPreview.src = src;
   }
 
   function openLightbox(index: number) {
@@ -127,16 +151,118 @@
     });
   }
 
-  edge?.addEventListener('click', () => {
-    loadGallery();
-    panel?.classList.add('expanded');
-    document.body.classList.add('panel-open');
+  function closeGallery() {
+    if (!isExpanded) return;
+    isExpanded = false;
+
+    if (galleryImages.length > 0) {
+      const idx = Math.floor(Math.random() * galleryImages.length);
+      tabPreview.src = galleryImages[idx];
+    }
+    tabPreview.style.width = '72px';
+    tabPreview.style.height = '72px';
+    tabPreview.style.opacity = '1';
+
+    panelBody!.style.transition = 'opacity 0.2s ease';
+    panelBody!.style.opacity = '0';
+
+    setTimeout(() => {
+      panelBody!.style.display = 'none';
+      panelBody!.style.transition = '';
+      container?.classList.remove('expanded');
+      document.body.classList.remove('panel-open');
+    }, 150);
+
+    setTimeout(() => {
+      tabPreview.style.opacity = '0';
+      tabPreview.style.width = '0';
+      tabPreview.style.height = '0';
+
+      setTimeout(() => {
+        tabPreview.style.opacity = '';
+        tabPreview.style.width = '';
+        tabPreview.style.height = '';
+        tabPreview.src = '';
+        grid!.innerHTML = '';
+        heroImage.style.display = 'none';
+        heroImage.style.opacity = '';
+        heroImage.style.transition = '';
+        container?.classList.remove('hover');
+      }, 350);
+    }, 150 + 500);
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (isExpanded) return;
+    const isNear = e.clientX < window.innerWidth * 0.2;
+    container?.classList.toggle('hover', isNear);
+    if (isNear && sampleImages.length > 0 && !tabPreview.getAttribute('src')) {
+      updatePreview();
+    }
   });
 
-  closeBtn?.addEventListener('click', () => {
-    panel?.classList.remove('expanded');
-    document.body.classList.remove('panel-open');
+  tab?.addEventListener('click', async () => {
+    if (isExpanded) return;
+    if (sampleImages.length === 0) {
+      await loadStickers();
+      updatePreview();
+    }
+    if (!tabPreview.getAttribute('src')) updatePreview();
+    isExpanded = true;
+
+    const rect = tabPreview.getBoundingClientRect();
+    heroImage.src = tabPreview.src;
+
+    heroImage.style.display = 'block';
+    heroImage.style.position = 'fixed';
+    heroImage.style.left = rect.left + 'px';
+    heroImage.style.top = rect.top + 'px';
+    heroImage.style.width = rect.width + 'px';
+    heroImage.style.height = rect.height + 'px';
+    heroImage.style.borderRadius = '8px';
+    heroImage.style.zIndex = '301';
+    heroImage.style.pointerEvents = 'none';
+    heroImage.style.transition = 'none';
+    heroImage.style.opacity = '1';
+
+    tabPreview.style.opacity = '0';
+
+    void heroImage.offsetHeight;
+
+    const maxW = window.innerWidth * 0.7;
+    const maxH = window.innerHeight * 0.7;
+    const targetLeft = (window.innerWidth - maxW) / 2;
+    const targetTop = (window.innerHeight - maxH) / 2;
+
+    heroImage.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+    heroImage.style.left = targetLeft + 'px';
+    heroImage.style.top = targetTop + 'px';
+    heroImage.style.width = maxW + 'px';
+    heroImage.style.height = maxH + 'px';
+    heroImage.style.borderRadius = '16px';
+
+    container?.classList.add('expanded');
+    document.body.classList.add('panel-open');
+
+    setTimeout(() => {
+      if (!isExpanded) return;
+      heroImage.style.transition = 'opacity 0.4s ease';
+      heroImage.style.opacity = '0';
+
+      panelBody!.style.display = 'flex';
+      requestAnimationFrame(() => {
+        panelBody!.style.opacity = '1';
+      });
+
+      loadGallery();
+
+      setTimeout(() => {
+        heroImage.style.display = 'none';
+      }, 400);
+    }, 1000);
   });
+
+  closeEdge?.addEventListener('click', closeGallery);
 
   lightboxClose?.addEventListener('click', closeLightbox);
   lightboxOverlay?.addEventListener('click', closeLightbox);
@@ -150,6 +276,8 @@
       if (e.key === 'ArrowRight') navigateLightbox(1);
     }
   });
+
+  loadStickers();
 </script>
 
 <style is:global>
@@ -157,96 +285,163 @@
     overflow: hidden;
   }
 
-  .gallery-edge {
+  .gallery-container {
     position: fixed;
     left: 0;
     top: 50%;
     transform: translateY(-50%);
+    width: 48px;
     z-index: 150;
     cursor: pointer;
-  }
-
-  .edge-indicator {
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    overflow: hidden;
     background: rgba(255, 255, 255, 0.3);
     backdrop-filter: blur(10px);
-    padding: 20px 12px;
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
     border: 1px solid rgba(255, 105, 180, 0.3);
     border-left: none;
-    transition: all 0.3s;
+    transition:
+      width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+      top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+      border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+      background 0.4s ease,
+      left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .edge-indicator:hover {
-    background: rgba(255, 105, 180, 0.2);
-    padding-right: 16px;
+  .gallery-container.hover {
+    width: 140px;
   }
 
-  .edge-text {
-    writing-mode: vertical-rl;
-    font-size: 14px;
-    font-weight: 500;
-    color: #333;
-  }
-
-  .edge-arrow {
-    font-size: 20px;
-    color: var(--color-pink);
-  }
-
-  .gallery-panel {
-    position: fixed;
+  .gallery-container.expanded {
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
+    transform: none;
+    border-radius: 0;
     background: var(--color-blue-95);
     backdrop-filter: blur(20px);
     z-index: 300;
-    display: flex;
-    flex-direction: column;
-    padding: 40px;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-100%);
-    transition: all 0.4s ease;
-    overflow: hidden;
   }
 
-  .gallery-panel.expanded {
+  .gallery-container.expanded .panel-body {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0 40px 40px;
+  }
+
+  .gallery-tab {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 16px 8px;
+    gap: 6px;
+    transition: opacity 0.2s ease;
+  }
+
+  .gallery-container.expanded .gallery-tab {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .tab-preview {
+    width: 0;
+    height: 0;
+    object-fit: contain;
+    border-radius: 8px;
+    opacity: 0;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  .gallery-container.hover .tab-preview {
+    width: 72px;
+    height: 72px;
+    opacity: 1;
+  }
+
+  .tab-arrow {
+    font-size: 20px;
+    color: var(--color-pink);
+    flex-shrink: 0;
+    padding: 4px;
+  }
+
+  .hero-image {
+    position: fixed;
+    display: none;
+    z-index: 301;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .panel-body {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 0 40px 40px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .close-edge {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 400;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    padding: 20px 10px;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    border-right: none;
+    transition: all 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+  }
+
+  body.panel-open .close-edge {
     opacity: 1;
     pointer-events: auto;
-    transform: translateX(0);
+  }
+
+  .close-edge:hover {
+    background: rgba(255, 105, 180, 0.2);
+    padding-left: 16px;
+  }
+
+  .close-arrow {
+    font-size: 20px;
+    color: var(--color-pink);
   }
 
   .gallery-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
+    gap: 12px;
+    margin-bottom: 16px;
     flex-shrink: 0;
+  }
+
+  .header-arrow {
+    font-size: 24px;
+    color: var(--color-pink);
+    font-weight: 300;
   }
 
   .gallery-header h2 {
     font-size: 24px;
     font-weight: 700;
     color: #222;
-  }
-
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #666;
-    transition: color 0.2s;
-  }
-
-  .close-btn:hover {
-    color: var(--color-pink);
   }
 
   .gallery-grid {
