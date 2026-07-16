@@ -159,8 +159,8 @@
       const idx = Math.floor(Math.random() * galleryImages.length);
       tabPreview.src = galleryImages[idx];
     }
-    tabPreview.style.width = '72px';
-    tabPreview.style.height = '72px';
+    tabPreview.style.width = '96px';
+    tabPreview.style.height = '96px';
     tabPreview.style.opacity = '1';
 
     panelBody!.style.transition = 'opacity 0.2s ease';
@@ -290,7 +290,7 @@
     left: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 48px;
+    width: 60px;
     z-index: 150;
     cursor: pointer;
     border-radius: 0 var(--radius-md) var(--radius-md) 0;
@@ -309,7 +309,7 @@
   }
 
   .gallery-container.hover {
-    width: 140px;
+    width: 180px;
   }
 
   .gallery-container.expanded {
@@ -337,8 +337,8 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 16px 8px;
-    gap: 6px;
+    padding: 20px 10px;
+    gap: 10px;
     transition: opacity 0.2s ease;
   }
 
@@ -359,13 +359,13 @@
   }
 
   .gallery-container.hover .tab-preview {
-    width: 72px;
-    height: 72px;
+    width: 96px;
+    height: 96px;
     opacity: 1;
   }
 
   .tab-arrow {
-    font-size: 20px;
+    font-size: 26px;
     color: var(--color-pink);
     flex-shrink: 0;
     padding: 4px;
@@ -398,7 +398,7 @@
     cursor: pointer;
     background: rgba(255, 255, 255, 0.3);
     backdrop-filter: blur(10px);
-    padding: 20px 10px;
+    padding: 26px 12px;
     border-radius: var(--radius-md) 0 0 var(--radius-md);
     border: 1px solid rgba(255, 105, 180, 0.3);
     border-right: none;
@@ -420,7 +420,7 @@
   }
 
   .close-arrow {
-    font-size: 20px;
+    font-size: 26px;
     color: var(--color-pink);
   }
 
@@ -446,9 +446,9 @@
 
   .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    row-gap: 20px;
-    column-gap: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    row-gap: 26px;
+    column-gap: 30px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -597,5 +597,31 @@
 
   .lightbox-next {
     right: 24px;
+  }
+
+  @media (max-width: 700px) {
+    .gallery-container {
+      width: 52px;
+    }
+
+    .gallery-container.hover {
+      width: 144px;
+    }
+
+    .gallery-tab {
+      padding: 18px 8px;
+      gap: 8px;
+    }
+
+    .gallery-container.hover .tab-preview {
+      width: 78px;
+      height: 78px;
+    }
+
+    .gallery-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      row-gap: 18px;
+      column-gap: 18px;
+    }
   }
 </style>

@@ -21,15 +21,15 @@ const displayItems = !hasTours
     : [...sorted.slice(startIdx), ...sorted.slice(0, startIdx)];
 
 const MAX_VISIBLE = 3;
-const OFFSET = 10;
+const OFFSET = 12;
 const W_STEP = 0.08;
 const B_STEP = 0.3;
-const CARD_H = 64;
-const GAP = 12;
-const HEADER_H = 44;
-const FOOTER_H = 40;
+const CARD_H = 82;
+const GAP = 14;
+const HEADER_H = 52;
+const FOOTER_H = 48;
 const COUNT = displayItems.length;
-const PAD = 12;
+const PAD = 14;
 
 const stackedH = CARD_H + (Math.min(COUNT, MAX_VISIBLE) - 1) * OFFSET + PAD;
 const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD * 2;
@@ -217,7 +217,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   .card-stack {
     position: relative;
-    width: 440px;
+    width: min(560px, calc(100vw - 40px));
     height: var(--stacked-h);
     background: transparent;
     border: 1px solid transparent;
@@ -250,7 +250,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   .tour-card {
     position: absolute;
-    padding: 10px 16px;
+    min-height: 82px;
+    padding: 16px 22px;
     background: rgba(20, 22, 30, 0.75);
     border: 1px solid rgba(255, 105, 180, 0.35);
     border-radius: var(--radius-md);
@@ -346,19 +347,22 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 4px;
+    gap: 14px;
+    min-height: 48px;
   }
 
   .card-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 7px;
+    min-width: 0;
   }
 
   .card-right {
     display: flex;
-    gap: 16px;
+    gap: 22px;
     align-items: center;
+    flex-shrink: 0;
   }
 
   .status-label {
@@ -376,20 +380,20 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    font-size: 11px;
+    gap: 4px;
+    font-size: 12px;
   }
 
   .card-train {
-    min-width: 50px;
+    min-width: 58px;
   }
 
   .card-waiting {
-    min-width: 80px;
+    min-width: 92px;
   }
 
   .card-status {
-    min-width: 50px;
+    min-width: 58px;
   }
 
   .train-label,
@@ -410,8 +414,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   .card-route {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: 10px;
+    font-size: 17px;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -432,8 +436,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   .card-meta {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 11px;
+    gap: 6px;
+    font-size: 12px;
     color: var(--color-text-light);
   }
 
@@ -453,15 +457,15 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   .card-nest {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
   .nest-icon {
-    font-size: 18px;
+    font-size: 22px;
   }
 
   .nest-text {
-    font-size: 14px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--color-text);
   }
@@ -477,7 +481,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     align-items: center;
     gap: 4px;
     padding: 0 16px;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--color-text-light);
     opacity: 0;
     pointer-events: none;
@@ -498,8 +502,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   }
 
   .beian-icon {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     object-fit: contain;
   }
 
@@ -516,5 +520,55 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   .stack-footer a:hover {
     color: var(--color-pink);
+  }
+
+  @media (max-width: 1228px) {
+    .train-screen {
+      top: 128px;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .train-screen {
+      top: 112px;
+    }
+
+    .tour-card {
+      padding: 14px 16px;
+    }
+
+    .card-body {
+      gap: 10px;
+    }
+
+    .card-right {
+      gap: 12px;
+    }
+
+    .card-route {
+      font-size: 15px;
+    }
+
+    .card-meta,
+    .card-train,
+    .card-waiting,
+    .card-status {
+      font-size: 11px;
+    }
+
+    .card-waiting {
+      min-width: 68px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .card-right {
+      display: none;
+    }
+
+    .card-route,
+    .card-meta {
+      white-space: normal;
+    }
   }
 </style>

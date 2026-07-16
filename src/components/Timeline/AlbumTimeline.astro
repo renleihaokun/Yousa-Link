@@ -93,7 +93,7 @@ const { albums } = albumsData;
   .timeline-section {
     position: relative;
     min-height: 100vh;
-    padding: 0 40px 80px;
+    padding: 0 48px 96px;
     margin-top: 100vh;
     background: var(--color-blue-80);
     backdrop-filter: blur(10px);
@@ -123,11 +123,11 @@ const { albums } = albumsData;
 
   .timeline-header {
     text-align: center;
-    margin-bottom: 60px;
+    margin-bottom: 72px;
   }
 
   .timeline-header h2 {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
     color: var(--color-text);
     margin-bottom: 24px;
@@ -135,7 +135,7 @@ const { albums } = albumsData;
 
   .timeline-content {
     position: relative;
-    max-width: 900px;
+    max-width: 1080px;
     margin: 0 auto;
   }
 
@@ -153,7 +153,7 @@ const { albums } = albumsData;
   .timeline-item {
     position: relative;
     width: 50%;
-    padding: 20px 40px;
+    padding: 24px 48px;
     z-index: 1;
     opacity: 0;
     transform: translateY(30px);
@@ -175,13 +175,13 @@ const { albums } = albumsData;
 
   .timeline-item.left {
     left: 0;
-    padding-right: 60px;
+    padding-right: 72px;
     text-align: right;
   }
 
   .timeline-item.right {
     left: 50%;
-    padding-left: 60px;
+    padding-left: 72px;
   }
 
   .timeline-dot {
@@ -214,7 +214,7 @@ const { albums } = albumsData;
   }
 
   .timeline-card {
-    padding: 20px;
+    padding: 26px;
     transition: transform 0.3s;
   }
 
@@ -224,9 +224,9 @@ const { albums } = albumsData;
 
   .album-year {
     font-family: var(--font-pixel);
-    font-size: 14px;
+    font-size: 15px;
     color: var(--color-purple);
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
 
   .album-cover {
@@ -234,7 +234,7 @@ const { albums } = albumsData;
     aspect-ratio: 1;
     border-radius: var(--radius-md);
     overflow: hidden;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
 
   .album-cover img {
@@ -244,14 +244,39 @@ const { albums } = albumsData;
   }
 
   .album-title {
-    font-size: 18px;
+    font-size: 21px;
     font-weight: 700;
     color: var(--color-text);
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
 
   .album-desc {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--color-text-light);
+  }
+
+  @media (max-width: 760px) {
+    .timeline-section {
+      padding: 0 24px 72px;
+    }
+
+    .timeline-content::before {
+      left: 20px;
+    }
+
+    .timeline-item,
+    .timeline-item.left,
+    .timeline-item.right {
+      left: 0;
+      width: 100%;
+      padding: 20px 0 20px 52px;
+      text-align: left;
+    }
+
+    .timeline-item.left .timeline-dot,
+    .timeline-item.right .timeline-dot {
+      left: 12px;
+      right: auto;
+    }
   }
 </style>

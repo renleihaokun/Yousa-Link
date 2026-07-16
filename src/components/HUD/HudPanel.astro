@@ -163,11 +163,11 @@
 <style>
   .hud-panel {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 240px;
-    padding: 16px 20px;
-    border-radius: 12px;
+    top: 24px;
+    right: 24px;
+    width: 310px;
+    padding: 20px 24px;
+    border-radius: 16px;
     z-index: 100;
     background: rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(24px) saturate(180%);
@@ -181,8 +181,8 @@
   .network-section {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 13px;
+    gap: 6px;
+    font-size: 14px;
   }
 
   .info-label {
@@ -197,24 +197,24 @@
   .divider {
     border: none;
     border-top: 1px dashed rgba(155, 89, 182, 0.3);
-    margin: 8px 0;
+    margin: 12px 0;
   }
 
   .player-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
 
   .player-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
   }
 
   .song-cover {
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid rgba(255, 105, 180, 0.4);
@@ -242,8 +242,8 @@
   .song-title {
     flex: 0 1 auto;
     min-width: 0;
-    max-width: 120px;
-    font-size: 12px;
+    max-width: 150px;
+    font-size: 14px;
     font-weight: 400;
     color: var(--color-text-light);
     white-space: nowrap;
@@ -254,8 +254,8 @@
   .control-buttons {
     display: flex;
     flex: 1;
-    min-width: 55px;
-    max-width: 110px;
+    min-width: 72px;
+    max-width: 128px;
     justify-content: space-evenly;
     padding: 0;
   }
@@ -263,7 +263,7 @@
   .ctrl-btn {
     background: none;
     border: none;
-    font-size: 14px;
+    font-size: 17px;
     cursor: pointer;
     color: var(--color-text);
     transition: color 0.2s;
@@ -278,7 +278,7 @@
   }
 
   .progress-bar {
-    height: 3px;
+    height: 4px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 2px;
     cursor: pointer;
@@ -290,5 +290,34 @@
     background: #ea95b3;
     width: 0%;
     transition: width 0.1s linear;
+  }
+
+  @media (max-width: 900px) {
+    .hud-panel {
+      width: 280px;
+      padding: 18px 20px;
+    }
+
+    .song-title {
+      max-width: 120px;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .hud-panel {
+      top: 18px;
+      right: 18px;
+      width: min(280px, calc(100vw - 148px));
+    }
+
+    .network-section,
+    .song-title {
+      font-size: 12px;
+    }
+
+    .song-cover {
+      width: 40px;
+      height: 40px;
+    }
   }
 </style>
