@@ -1,104 +1,454 @@
 ---
 ---
 
-<div class="game-edge" id="game-edge">
-  <div class="edge-indicator">
-    <span class="edge-text">抓肥鸡</span>
-    <span class="edge-arrow">‹</span>
+<div class="game-container" id="game-container">
+  <div class="game-tab" id="game-tab">
+    <span class="tab-arrow">‹</span>
+    <img class="tab-thumb" id="tab-thumb" src="/images/game/yousa-chicken.png" alt="肥鸡" />
   </div>
-</div>
 
-<div class="game-panel" id="game-panel">
-  <div class="game-header">
-    <h2>抓肥鸡</h2>
-    <button class="close-btn" id="close-game">✕</button>
+  <img class="hero-chicken" id="hero-chicken" src="/images/game/yousa-chicken.png" alt="" />
+
+  <div class="game-panel" id="game-panel">
+    <div class="game-header">
+      <h2>抓肥鸡</h2>
+      <div class="catch-counter">
+        捕获: <b id="catch-count">0</b> 次
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="game-canvas"></canvas>
+    </div>
   </div>
-  
-  <div class="game-stats">
-    <span class="stats-label">肥鸡已被抓住</span>
-    <span class="stats-count" id="catch-count">0</span>
-    <span class="stats-label">次</span>
-  </div>
-  
-  <div class="game-area" id="game-area">
-    <div class="fat-chicken" id="fat-chicken">🐔</div>
-    <div class="game-hint">点击肥鸡！</div>
+
+  <div class="close-tab" id="close-tab">
+    <span>›</span>
   </div>
 </div>
 
 <script>
-  const edge = document.getElementById('game-edge');
+  const spriteSrc = '/images/game/yousa-chicken.png';
+  const gameContainer = document.getElementById('game-container');
+  const tab = document.getElementById('game-tab');
+  const tabThumb = document.getElementById('tab-thumb') ;
+  const heroChicken = document.getElementById('hero-chicken') ;
   const panel = document.getElementById('game-panel');
-  const closeBtn = document.getElementById('close-game');
-  const gameArea = document.getElementById('game-area');
-  const chicken = document.getElementById('fat-chicken');
+  const closeTab = document.getElementById('close-tab');
+  const canvas = document.getElementById('game-canvas') ;
   const catchCount = document.getElementById('catch-count');
-
+  let isExpanded = false;
+  let loading = false;
   let count = 0;
-  let gameActive = false;
-  let moveInterval: number | null = null;
+  let animId = 0;
+  let sprite: HTMLImageElement;
+  let ctx: CanvasRenderingContext2D;
+  let localCatchAvailable = false;
+  let localCatchCount = 0;
 
-  function moveChicken() {
-    if (!gameArea || !chicken) return;
-    const areaRect = gameArea.getBoundingClientRect();
-    const maxX = areaRect.width - 80;
-    const maxY = areaRect.height - 80;
-    
-    const newX = Math.random() * maxX;
-    const newY = Math.random() * maxY;
-    
-    chicken.style.left = `${newX}px`;
-    chicken.style.top = `${newY}px`;
-  }
+  // Chicken state
+  let chicken = {
+    x: 0, y: 0, vx: 5, vy: 4, size: 64
+  };
+  let bobbing = 0;
 
-  function startGame() {
-    gameActive = true;
-    moveChicken();
-    moveInterval = window.setInterval(moveChicken, 800);
-  }
+  // Cage animation state
+  let cageActive = false;
+  let cagePhase = 0;      
+  let cageTimer = 0;      
+  let lastCageTime = 0;
+  let chickenCaughtX = 0;
+  let chickenCaughtY = 0;
 
-  function stopGame() {
-    gameActive = false;
-    if (moveInterval) {
-      clearInterval(moveInterval);
-      moveInterval = null;
+  // Entry animation
+  let entering = false;
+  let enterProgress = 0;
+  let enterFromX = 0;
+  let enterFromY = 0;
+  let enterToX = 0;
+  let enterToY = 0;
+  let enterDuration = 500;
+  let enterStartTime = 0;
+
+  function resizeCanvas() {
+    const wrap = canvas.parentElement!;
+    const rect = wrap.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
     }
   }
 
-  chicken?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (!gameActive) return;
-    
-    count++;
-    if (catchCount) catchCount.textContent = count.toString();
-    
-    chicken.style.transform = 'scale(1.5) rotate(20deg)';
-    setTimeout(() => {
-      if (chicken) chicken.style.transform = '';
-      moveChicken();
-    }, 200);
+  function spawnChicken() {
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+    const s = chicken.size;
 
-    // Send to Cloudflare KV
-    fetch('/api/catch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ count })
-    }).catch(() => {});
-  });
+    chicken.x = Math.random() * (w - s);
+    chicken.y = Math.random() * (h - s);
 
-  edge?.addEventListener('click', () => {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 3;
+    chicken.vx = Math.cos(angle) * speed;
+    chicken.vy = Math.sin(angle) * speed;
+  }
+
+  function startEntry() {
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+    const s = chicken.size;
+
+    const edge = Math.floor(Math.random() * 4);
+    const margin = -s;
+    switch (edge) {
+      case 0:
+        enterFromX = Math.random() * (w - s); enterFromY = margin;
+        enterToX = enterFromX; enterToY = Math.random() * (h - s) * 0.5 + s;
+        break;
+      case 1:
+        enterFromX = w - margin; enterFromY = Math.random() * (h - s);
+        enterToX = Math.random() * (w - s) * 0.5 + s; enterToY = enterFromY;
+        break;
+      case 2:
+        enterFromX = Math.random() * (w - s); enterFromY = h - margin;
+        enterToX = enterFromX; enterToY = h - Math.random() * (h - s) * 0.5 - s;
+        break;
+      case 3:
+        enterFromX = margin; enterFromY = Math.random() * (h - s);
+        enterToX = Math.random() * (w - s) * 0.5 + s; enterToY = enterFromY;
+        break;
+    }
+    chicken.x = enterFromX;
+    chicken.y = enterFromY;
+    entering = true;
+    enterProgress = 0;
+    enterStartTime = performance.now();
+  }
+
+  function initCanvas() {
+    ctx = canvas.getContext('2d')!;
+    resizeCanvas();
+    sprite = new Image();
+    sprite.src = spriteSrc;
+    sprite.onload = () => {
+      spawnChicken();
+      startGameLoop();
+    };
+    sprite.onerror = () => {
+      spawnChicken();
+      startGameLoop();
+    };
+  }
+
+  function updatePhysics() {
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+    const s = chicken.size;
+
+    chicken.x += chicken.vx;
+    chicken.y += chicken.vy;
+
+    if (chicken.x < 0) { chicken.x = 0; chicken.vx = Math.abs(chicken.vx); }
+    if (chicken.x + s > w) { chicken.x = w - s; chicken.vx = -Math.abs(chicken.vx); }
+    if (chicken.y < 0) { chicken.y = 0; chicken.vy = Math.abs(chicken.vy); }
+    if (chicken.y + s > h) { chicken.y = h - s; chicken.vy = -Math.abs(chicken.vy); }
+
+    if (Math.random() < 0.02) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.min(6, Math.sqrt(chicken.vx * chicken.vx + chicken.vy * chicken.vy) + (Math.random() - 0.5) * 2);
+      chicken.vx = Math.cos(angle) * Math.max(3, speed);
+      chicken.vy = Math.sin(angle) * Math.max(3, speed);
+    }
+
+    bobbing += 0.08;
+  }
+
+  function drawChicken(px: number, py: number) {
+    const s = chicken.size;
+    if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+      ctx.save();
+      ctx.translate(px + s / 2, py + s / 2 + Math.sin(bobbing) * 2);
+      ctx.drawImage(sprite, -s / 2, -s / 2, s, s);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.translate(px + s / 2, py + s / 2);
+      ctx.fillStyle = '#ea95b3';
+      ctx.fillRect(-s / 2, -s / 2, s, s);
+      ctx.fillStyle = '#fff';
+      ctx.font = `${s * 0.6}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🐔', 0, 0);
+      ctx.restore();
+    }
+  }
+
+  function drawCage(cx: number, cy: number, progress: number) {
+    const s = chicken.size;
+    const cw = s + 24;
+    const ch = s + 24;
+    const startY = cy - ch / 2 - 120;
+    const endY = cy - ch / 2;
+
+    let drawY: number;
+    let alpha = 1;
+    if (progress < 1) {
+      drawY = startY + (endY - startY) * progress;
+    } else if (progress < 1.4) {
+      drawY = endY;
+    } else {
+      const lift = (progress - 1.4) / 0.6;
+      drawY = endY - lift * 150;
+      alpha = 1 - lift;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#5a3a1a';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(cx - cw / 2, drawY, cw, ch);
+
+    ctx.strokeStyle = '#7a5a3a';
+    ctx.lineWidth = 2;
+    for (let i = 1; i < 4; i++) {
+      const bx = cx - cw / 2 + (cw / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(bx, drawY);
+      ctx.lineTo(bx, drawY + ch);
+      ctx.stroke();
+    }
+    for (let i = 1; i < 3; i++) {
+      const by = drawY + (ch / 3) * i;
+      ctx.beginPath();
+      ctx.moveTo(cx - cw / 2, by);
+      ctx.lineTo(cx + cw / 2, by);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = '#5a3a1a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, drawY - 14, 8, Math.PI, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 8, drawY - 14);
+    ctx.lineTo(cx, drawY);
+    ctx.moveTo(cx + 8, drawY - 14);
+    ctx.lineTo(cx, drawY);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function startCage() {
+    cageActive = true;
+    cagePhase = 0;
+    cageTimer = 0;
+    lastCageTime = performance.now();
+    chickenCaughtX = chicken.x;
+    chickenCaughtY = chicken.y;
+  }
+
+  function updateCage() {
+    const now = performance.now();
+    const dt = now - lastCageTime;
+    lastCageTime = now;
+    cageTimer += dt;
+
+    if (cagePhase === 0) {
+      if (cageTimer >= 500) { cagePhase = 1; cageTimer = 0; }
+    } else if (cagePhase === 1) {
+      if (cageTimer >= 400) { cagePhase = 2; cageTimer = 0; }
+    } else if (cagePhase === 2) {
+      if (cageTimer >= 500) {
+        cageActive = false;
+        count++;
+        if (catchCount) catchCount.textContent = count.toString();
+        fetch('/api/catch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ count })
+        }).catch(() => {});
+        startEntry();
+      }
+    }
+  }
+
+  function getCageProgress(): number {
+    if (cagePhase === 0) return cageTimer / 500;
+    if (cagePhase === 1) return 1 + (cageTimer / 400);
+    return 1.4 + (cageTimer / 500);
+  }
+
+  function updateEntry() {
+    const now = performance.now();
+    enterProgress = Math.min(1, (now - enterStartTime) / enterDuration);
+
+    const t = easeOutCubic(enterProgress);
+    chicken.x = enterFromX + (enterToX - enterFromX) * t;
+    chicken.y = enterFromY + (enterToY - enterFromY) * t;
+
+    if (enterProgress >= 1) {
+      entering = false;
+      chicken.x = enterToX;
+      chicken.y = enterToY;
+    }
+  }
+
+  function easeOutCubic(t: number): number {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function render() {
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (entering) {
+      drawChicken(chicken.x, chicken.y);
+      return;
+    }
+
+    if (cageActive) {
+      drawChicken(chickenCaughtX, chickenCaughtY);
+      drawCage(chickenCaughtX + chicken.size / 2, chickenCaughtY + chicken.size / 2, getCageProgress());
+      return;
+    }
+
+    drawChicken(chicken.x, chicken.y);
+  }
+
+  function gameLoop() {
+    if (entering) {
+      updateEntry();
+    } else if (cageActive) {
+      updateCage();
+    } else {
+      updatePhysics();
+    }
+    render();
+    animId = requestAnimationFrame(gameLoop);
+  }
+
+  function startGameLoop() {
+    if (animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(gameLoop);
+  }
+
+  function stopGame() {
+    if (animId) {
+      cancelAnimationFrame(animId);
+      animId = 0;
+    }
+    entering = false;
+    cageActive = false;
+  }
+
+  function openGame() {
+    if (isExpanded || loading) return;
+    loading = true;
+
+    const rect = tabThumb.getBoundingClientRect();
+
+    heroChicken.style.display = 'block';
+    heroChicken.style.position = 'fixed';
+    heroChicken.style.left = rect.left + 'px';
+    heroChicken.style.top = rect.top + 'px';
+    heroChicken.style.width = rect.width + 'px';
+    heroChicken.style.height = rect.height + 'px';
+    heroChicken.style.borderRadius = '8px';
+    heroChicken.style.zIndex = '301';
+    heroChicken.style.pointerEvents = 'none';
+    heroChicken.style.transition = 'none';
+    heroChicken.style.opacity = '1';
+
+    tabThumb.style.opacity = '0';
+
+    gameContainer?.classList.add('expanded');
     panel?.classList.add('expanded');
     document.body.classList.add('panel-open');
-    startGame();
-  });
 
-  closeBtn?.addEventListener('click', () => {
-    panel?.classList.remove('expanded');
-    document.body.classList.remove('panel-open');
+    void heroChicken.offsetHeight;
+
+    const targetSize = Math.min(window.innerHeight * 0.25, 128);
+    heroChicken.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+    heroChicken.style.width = targetSize + 'px';
+    heroChicken.style.height = targetSize + 'px';
+    heroChicken.style.left = (rect.left - (targetSize - rect.width) / 2) + 'px';
+    heroChicken.style.top = (rect.top - (targetSize - rect.height) / 2) + 'px';
+    heroChicken.style.borderRadius = '16px';
+
+    isExpanded = true;
+
+    setTimeout(() => {
+      heroChicken.style.display = 'none';
+      initCanvas();
+      loading = false;
+    }, 600);
+  }
+
+  function closeGame() {
+    if (!isExpanded) return;
+    isExpanded = false;
     stopGame();
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+
+    const wrap = document.querySelector('.canvas-wrap');
+    tabThumb.style.width = '';
+    tabThumb.style.height = '';
+    tabThumb.style.opacity = '';
+    wrap?.classList.add('fade-out');
+
+    setTimeout(() => {
+      gameContainer?.classList.remove('expanded');
+      panel?.classList.remove('expanded');
+      document.body.classList.remove('panel-open');
+      wrap?.classList.remove('fade-out');
+    }, 150);
+
+    setTimeout(() => {
+      tabThumb.style.opacity = '0';
+      tabThumb.style.width = '0';
+      tabThumb.style.height = '0';
+      setTimeout(() => {
+        tabThumb.style.opacity = '';
+        tabThumb.style.width = '';
+        tabThumb.style.height = '';
+        heroChicken.style.display = 'none';
+      }, 350);
+    }, 150 + 500);
+  }
+
+  tab?.addEventListener('click', openGame);
+  closeTab?.addEventListener('click', closeGame);
+
+  canvas?.addEventListener('click', (e) => {
+    if (cageActive || entering || !isExpanded) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const s = chicken.size;
+    if (mx >= chicken.x && mx <= chicken.x + s && my >= chicken.y && my <= chicken.y + s) {
+      startCage();
+    }
   });
 
-  // Load initial count
+  window.addEventListener('resize', () => {
+    if (isExpanded && ctx) resizeCanvas();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isExpanded) return;
+    const isNear = e.clientX > window.innerWidth * 0.7;
+    tab?.classList.toggle('hover', isNear);
+  });
+
   fetch('/api/catch')
     .then(res => res.json())
     .then(data => {
@@ -110,45 +460,66 @@
     .catch(() => {});
 </script>
 
-<style>
-  .game-edge {
+<style is:global>
+  .game-tab {
     position: fixed;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
     z-index: 150;
     cursor: pointer;
-  }
-
-  .edge-indicator {
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    overflow: hidden;
     background: rgba(255, 255, 255, 0.3);
     backdrop-filter: blur(10px);
-    padding: 20px 12px;
-    border-radius: var(--radius-md) 0 0 var(--radius-md);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
     border: 1px solid rgba(255, 105, 180, 0.3);
     border-right: none;
-    transition: all 0.3s;
+    transition:
+      width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+      top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+      border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 48px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 16px 8px;
+    gap: 6px;
   }
 
-  .edge-indicator:hover {
-    background: rgba(255, 105, 180, 0.2);
-    padding-left: 16px;
+  .game-tab.hover {
+    width: 140px;
   }
 
-  .edge-text {
-    writing-mode: vertical-rl;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--color-text);
+  .tab-thumb {
+    width: 0;
+    height: 0;
+    object-fit: contain;
+    border-radius: 8px;
+    opacity: 0;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.5);
   }
 
-  .edge-arrow {
+  .game-tab.hover .tab-thumb {
+    width: 72px;
+    height: 72px;
+    opacity: 1;
+  }
+
+  .tab-arrow {
     font-size: 20px;
     color: var(--color-pink);
+    flex-shrink: 0;
+    padding: 4px;
+  }
+
+  .hero-chicken {
+    position: fixed;
+    display: none;
+    z-index: 301;
+    object-fit: contain;
+    pointer-events: none;
   }
 
   .game-panel {
@@ -175,89 +546,96 @@
     transform: translateX(0);
   }
 
+  .game-container.expanded .game-tab {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .game-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
+    flex-shrink: 0;
   }
 
   .game-header h2 {
     font-size: 24px;
     font-weight: 700;
-    color: var(--color-text);
+    color: #222;
   }
 
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
+  .catch-counter {
+    font-size: 14px;
     color: var(--color-text-light);
-    transition: color 0.2s;
-  }
-
-  .close-btn:hover {
-    color: var(--color-pink);
-  }
-
-  .game-stats {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 32px;
-    padding: 16px 24px;
+    padding: 8px 16px;
     background: var(--color-card-bg);
     border-radius: var(--radius-md);
     border: 1px solid var(--color-card-border);
-    width: fit-content;
   }
 
-  .stats-label {
-    font-size: 14px;
-    color: var(--color-text-light);
-  }
-
-  .stats-count {
+  .catch-counter b {
     font-family: var(--font-pixel);
-    font-size: 24px;
+    font-size: 18px;
     color: var(--color-pink);
-    font-weight: 700;
   }
 
-  .game-area {
+  .canvas-wrap {
     flex: 1;
     position: relative;
     background: rgba(255, 255, 255, 0.3);
     border-radius: var(--radius-lg);
     border: 2px dashed var(--color-card-border);
     overflow: hidden;
+    min-height: 0;
+    transition: opacity 0.2s ease;
   }
 
-  .fat-chicken {
-    position: absolute;
-    font-size: 60px;
-    cursor: pointer;
-    user-select: none;
-    transition: transform 0.2s;
-    left: 50%;
+  .canvas-wrap.fade-out {
+    opacity: 0;
+  }
+
+  #game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: crosshair;
+  }
+
+  .close-tab {
+    position: fixed;
+    left: 0;
     top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateY(-50%);
+    z-index: 400;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    padding: 20px 10px;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    border-left: none;
+    transition: all 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
   }
 
-  .fat-chicken:hover {
-    transform: translate(-50%, -50%) scale(1.1);
+  .game-container.expanded .close-tab {
+    opacity: 1;
+    pointer-events: auto;
   }
 
-  .game-hint {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 14px;
-    color: var(--color-text-light);
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.5);
-    border-radius: var(--radius-sm);
+  .close-tab:hover {
+    background: rgba(255, 105, 180, 0.2);
+    padding-right: 16px;
+  }
+
+  .close-tab span {
+    font-size: 20px;
+    color: var(--color-pink);
   }
 </style>
