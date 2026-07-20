@@ -43,6 +43,15 @@
   let songList: Array<{ name: string; url: string; pic: string }> = [];
   let currentIndex = 0;
 
+  function getRandomIndex(excludeIndex?: number): number {
+    if (songList.length <= 1) return 0;
+    let idx;
+    do {
+      idx = Math.floor(Math.random() * songList.length);
+    } while (idx === excludeIndex);
+    return idx;
+  }
+
   async function loadPlaylist() {
     try {
       const response = await fetch('https://meting.mysqil.com/api?server=netease&type=playlist&id=69909382');
@@ -55,6 +64,7 @@
           url: song.url,
           pic: song.pic || ''
         }));
+      currentIndex = getRandomIndex();
       updateSongDisplay();
     } catch {
       document.getElementById('song-title')!.textContent = '播放器加载失败';
@@ -126,7 +136,7 @@
   });
 
   function playNext() {
-    currentIndex = (currentIndex + 1) % songList.length;
+    currentIndex = getRandomIndex(currentIndex);
     updateSongDisplay();
     const fill = document.getElementById('progress-fill');
     if (fill) fill.style.width = '0%';
@@ -139,7 +149,7 @@
   document.getElementById('next-btn')?.addEventListener('click', playNext);
 
   document.getElementById('prev-btn')?.addEventListener('click', () => {
-    currentIndex = (currentIndex - 1 + songList.length) % songList.length;
+    currentIndex = getRandomIndex(currentIndex);
     updateSongDisplay();
     const fill = document.getElementById('progress-fill');
     if (fill) fill.style.width = '0%';
