@@ -3,13 +3,27 @@ import toursData from '../../data/tours.json';
 
 const { tours } = toursData;
 
-const sorted = [...tours]
-  .map(t => ({ ...t, dateObj: new Date(t.date) }))
-  .sort((a, b) => a.dateObj - b.dateObj);
-
+const MS_PER_DAY = 86400000;
 const today = new Date();
 today.setHours(0, 0, 0, 0);
-const upcomingIdx = sorted.findIndex(t => t.dateObj >= today);
+const todayMs = today.getTime();
+
+const sorted = [...tours]
+  .map(t => {
+    const origDate = new Date(t.date);
+    const effDate = new Date(origDate);
+    effDate.setDate(effDate.getDate() + (t.delay ?? 0));
+    const diffMs = effDate.getTime() - todayMs;
+    const diffDays = Math.round(diffMs / MS_PER_DAY);
+    const daysText = diffDays > 0 ? `${diffDays}天后` : diffDays < 0 ? `${Math.abs(diffDays)}天前` : '今天';
+    const d = t.delay ?? 0;
+    const delayText = d > 0 ? `晚点${d}天` : d < 0 ? `提前${Math.abs(d)}天` : '正点';
+    const isPast = diffDays < 0;
+    return { ...t, dateObj: origDate, effectiveDate: effDate, daysText, delayText, isPast };
+  })
+  .sort((a, b) => a.effectiveDate - b.effectiveDate);
+
+const upcomingIdx = sorted.findIndex(t => t.effectiveDate.getTime() >= todayMs);
 const noUpcoming = upcomingIdx === -1;
 const startIdx = noUpcoming ? 0 : upcomingIdx;
 
@@ -95,9 +109,9 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
                     <span class="waiting-label">候车室</span>
                     <span class="waiting-value">{item.waitingRoom || '待定'}</span>
                   </div>
-                  <div class="card-status">
-                    <span class="status-label">预计</span>
-                    <span class="status-value">正点</span>
+                  <div class="card-status" class:list={{ 'is-past': item.isPast }}>
+                    <span class="status-label">{item.isPast ? '实际' : '预计'}</span>
+                    <span class="status-value">{item.daysText}·{item.delayText}</span>
                   </div>
                 </div>
               </>
@@ -217,11 +231,11 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   .card-stack {
     position: relative;
-    width: min(560px, calc(100vw - 40px));
+    width: min(640px, calc(100vw - 40px));
     height: var(--stacked-h);
     background: transparent;
     border: 1px solid transparent;
-    border-radius: var(--radius-lg);
+    border-radius: 32px;
     --spring: cubic-bezier(0.24, 1.08, 0.34, 1);
     --spring-soft: cubic-bezier(0.22, 1.03, 0.34, 1);
     transition:
@@ -254,7 +268,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     padding: 16px 22px;
     background: rgba(20, 22, 30, 0.75);
     border: 1px solid rgba(255, 105, 180, 0.35);
-    border-radius: var(--radius-md);
+    border-radius: 24px;
     backdrop-filter: blur(24px);
     box-shadow: var(--shadow-card);
     transition:
@@ -372,6 +386,11 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   .status-value {
     color: #4ade80;
     font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .card-status.is-past .status-value {
+    color: var(--color-yellow);
   }
 
   .card-train,
@@ -393,7 +412,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   }
 
   .card-status {
-    min-width: 58px;
+    min-width: 100px;
   }
 
   .train-label,

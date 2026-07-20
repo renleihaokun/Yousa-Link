@@ -7,6 +7,7 @@
       "date": "2026-07-18",
       "dateDisplay": "7月18日",
       "status": "upcoming",
+      "delay": 0,
       "venue": "成都场",
       "trainNumber": "鸢148",
       "waitingRoom": "绿演中心"
@@ -18,6 +19,7 @@
       "date": "2026-08-01",
       "dateDisplay": "8月1日",
       "status": "upcoming",
+      "delay": 0,
       "venue": "北京场",
       "trainNumber": "鸢148",
       "waitingRoom": "RMMF·789店"
@@ -29,6 +31,7 @@
       "date": "2026-08-15",
       "dateDisplay": "8月15日",
       "status": "upcoming",
+      "delay": 0,
       "venue": "杭州场",
       "trainNumber": "鸢148",
       "waitingRoom": "待定"
@@ -40,6 +43,7 @@
       "date": "2026-08-22",
       "dateDisplay": "8月22日",
       "status": "upcoming",
+      "delay": 0,
       "venue": "广州场",
       "trainNumber": "鸢148",
       "waitingRoom": "待定"
@@ -51,6 +55,7 @@
       "date": "2026-09-12",
       "dateDisplay": "9月12日",
       "status": "upcoming",
+      "delay": 0,
       "venue": "厦门场",
       "trainNumber": "鸢148",
       "waitingRoom": "待定"
@@ -62,6 +67,7 @@
       "date": "2026-09-26",
       "dateDisplay": "9月26日",
       "status": "upcoming",
+      "delay": 0,
       "venue": "武汉场",
       "trainNumber": "鸢148",
       "waitingRoom": "待定"
@@ -73,6 +79,7 @@
       "date": "2026-10-10",
       "dateDisplay": "那时候",
       "status": "upcoming",
+      "delay": 0,
       "venue": "上海场",
       "trainNumber": "鸢148",
       "waitingRoom": "待定"
