@@ -11,13 +11,32 @@
 
   <div class="game-panel" id="game-panel">
     <div class="game-header">
-      <h2>抓肥鸡</h2>
-      <div class="catch-counter">
-        捕获: <b id="catch-count">0</b> 次
+      <div class="game-title">
+        <h2>抓肥鸡</h2>
+        <span class="game-status" id="game-status">追捕中</span>
+      </div>
+      <div class="game-stats" aria-label="游戏统计">
+        <div class="game-stat">
+          <span>得分</span>
+          <b id="game-score">0000</b>
+        </div>
+        <div class="game-stat">
+          <span>连抓</span>
+          <b id="game-streak">0</b>
+        </div>
+        <div class="game-stat">
+          <span>最快</span>
+          <b id="best-reaction">--</b>
+        </div>
+        <div class="game-stat catch-counter">
+          <span>累计捕获</span>
+          <b id="catch-count">0</b>
+        </div>
       </div>
     </div>
     <div class="canvas-wrap">
       <canvas id="game-canvas"></canvas>
+      <div class="combo-callout" id="combo-callout" aria-live="polite"></div>
     </div>
   </div>
 
@@ -28,6 +47,9 @@
 
 <script>
   const spriteSrc = '/images/game/yousa-chicken.png';
+  const CHICKEN_HEIGHT = 64;
+  const DEFAULT_CHICKEN_RATIO = 500 / 380;
+  const ALPHA_HIT_THRESHOLD = 32;
   const gameContainer = document.getElementById('game-container');
   const tab = document.getElementById('game-tab');
   const tabThumb = document.getElementById('tab-thumb') ;
@@ -36,18 +58,35 @@
   const closeTab = document.getElementById('close-tab');
   const canvas = document.getElementById('game-canvas') ;
   const catchCount = document.getElementById('catch-count');
+  const scoreEl = document.getElementById('game-score');
+  const streakEl = document.getElementById('game-streak');
+  const bestReactionEl = document.getElementById('best-reaction');
+  const statusEl = document.getElementById('game-status');
+  const comboCallout = document.getElementById('combo-callout');
   let isExpanded = false;
   let loading = false;
-  let count = 0;
+  let count = Math.max(0, Number.parseInt(localStorage.getItem('yousa-catch-count') || '0', 10) || 0);
+  let score = 0;
+  let streak = 0;
+  let bestReaction = Math.max(0, Number.parseInt(localStorage.getItem('yousa-catch-best-reaction') || '0', 10) || 0);
   let animId = 0;
   let sprite: HTMLImageElement;
   let ctx: CanvasRenderingContext2D;
-  let localCatchAvailable = false;
-  let localCatchCount = 0;
+  let lastFrameTime = 0;
+  let targetLiveSince = 0;
+  let calloutTimer = 0;
+  let spritePixels: Uint8ClampedArray | null = null;
+  let spritePixelWidth = 0;
+  let spritePixelHeight = 0;
 
   // Chicken state
   let chicken = {
-    x: 0, y: 0, vx: 5, vy: 4, size: 64
+    x: 0,
+    y: 0,
+    vx: 5,
+    vy: 4,
+    width: CHICKEN_HEIGHT * DEFAULT_CHICKEN_RATIO,
+    height: CHICKEN_HEIGHT
   };
   let bobbing = 0;
 
@@ -58,6 +97,15 @@
   let lastCageTime = 0;
   let chickenCaughtX = 0;
   let chickenCaughtY = 0;
+
+  type Effect = {
+    x: number;
+    y: number;
+    age: number;
+    duration: number;
+    kind: 'hit' | 'miss';
+  };
+  const effects: Effect[] = [];
 
   // Entry animation
   let entering = false;
@@ -80,46 +128,73 @@
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
+      clampChickenToCanvas();
+    }
+  }
+
+  function getCanvasSize() {
+    const dpr = window.devicePixelRatio || 1;
+    return {
+      width: canvas.width / dpr,
+      height: canvas.height / dpr
+    };
+  }
+
+  function clampChickenToCanvas() {
+    const { width, height } = getCanvasSize();
+    const maxX = Math.max(0, width - chicken.width);
+    const maxY = Math.max(0, height - chicken.height);
+
+    if (entering) {
+      enterToX = Math.min(maxX, Math.max(0, enterToX));
+      enterToY = Math.min(maxY, Math.max(0, enterToY));
+      return;
+    }
+
+    chicken.x = Math.min(maxX, Math.max(0, chicken.x));
+    chicken.y = Math.min(maxY, Math.max(0, chicken.y));
+    if (cageActive) {
+      chickenCaughtX = Math.min(maxX, Math.max(0, chickenCaughtX));
+      chickenCaughtY = Math.min(maxY, Math.max(0, chickenCaughtY));
     }
   }
 
   function spawnChicken() {
-    const w = canvas.width / (window.devicePixelRatio || 1);
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const s = chicken.size;
+    const { width, height } = getCanvasSize();
+    const maxX = Math.max(0, width - chicken.width);
+    const maxY = Math.max(0, height - chicken.height);
 
-    chicken.x = Math.random() * (w - s);
-    chicken.y = Math.random() * (h - s);
+    chicken.x = Math.random() * maxX;
+    chicken.y = Math.random() * maxY;
 
     const angle = Math.random() * Math.PI * 2;
-    const speed = 4 + Math.random() * 3;
+    const speed = 240 + Math.random() * 180;
     chicken.vx = Math.cos(angle) * speed;
     chicken.vy = Math.sin(angle) * speed;
   }
 
   function startEntry() {
-    const w = canvas.width / (window.devicePixelRatio || 1);
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const s = chicken.size;
+    const { width, height } = getCanvasSize();
+    const maxX = Math.max(0, width - chicken.width);
+    const maxY = Math.max(0, height - chicken.height);
 
     const edge = Math.floor(Math.random() * 4);
-    const margin = -s;
     switch (edge) {
       case 0:
-        enterFromX = Math.random() * (w - s); enterFromY = margin;
-        enterToX = enterFromX; enterToY = Math.random() * (h - s) * 0.5 + s;
+        enterFromX = Math.random() * maxX; enterFromY = -chicken.height;
+        enterToX = enterFromX; enterToY = Math.min(maxY, Math.random() * maxY * 0.5 + chicken.height);
         break;
       case 1:
-        enterFromX = w - margin; enterFromY = Math.random() * (h - s);
-        enterToX = Math.random() * (w - s) * 0.5 + s; enterToY = enterFromY;
+        enterFromX = width + chicken.width; enterFromY = Math.random() * maxY;
+        enterToX = Math.min(maxX, Math.random() * maxX * 0.5 + chicken.width); enterToY = enterFromY;
         break;
       case 2:
-        enterFromX = Math.random() * (w - s); enterFromY = h - margin;
-        enterToX = enterFromX; enterToY = h - Math.random() * (h - s) * 0.5 - s;
+        enterFromX = Math.random() * maxX; enterFromY = height + chicken.height;
+        enterToX = enterFromX; enterToY = Math.max(0, maxY - Math.random() * maxY * 0.5);
         break;
       case 3:
-        enterFromX = margin; enterFromY = Math.random() * (h - s);
-        enterToX = Math.random() * (w - s) * 0.5 + s; enterToY = enterFromY;
+        enterFromX = -chicken.width; enterFromY = Math.random() * maxY;
+        enterToX = Math.min(maxX, Math.random() * maxX * 0.5 + chicken.width); enterToY = enterFromY;
         break;
     }
     chicken.x = enterFromX;
@@ -135,52 +210,131 @@
     sprite = new Image();
     sprite.src = spriteSrc;
     sprite.onload = () => {
+      chicken.width = CHICKEN_HEIGHT * (sprite.naturalWidth / sprite.naturalHeight);
+      chicken.height = CHICKEN_HEIGHT;
+      prepareSpritePixels();
       spawnChicken();
+      targetLiveSince = performance.now();
       startGameLoop();
     };
     sprite.onerror = () => {
       spawnChicken();
+      targetLiveSince = performance.now();
       startGameLoop();
     };
   }
 
-  function updatePhysics() {
-    const w = canvas.width / (window.devicePixelRatio || 1);
-    const h = canvas.height / (window.devicePixelRatio || 1);
-    const s = chicken.size;
+  function prepareSpritePixels() {
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = sprite.naturalWidth;
+    maskCanvas.height = sprite.naturalHeight;
+    const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+    if (!maskCtx) return;
 
-    chicken.x += chicken.vx;
-    chicken.y += chicken.vy;
+    try {
+      maskCtx.drawImage(sprite, 0, 0);
+      spritePixels = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
+      spritePixelWidth = maskCanvas.width;
+      spritePixelHeight = maskCanvas.height;
+    } catch {
+      spritePixels = null;
+      spritePixelWidth = 0;
+      spritePixelHeight = 0;
+    }
+  }
+
+  function updatePhysics(dt: number) {
+    const { width, height } = getCanvasSize();
+
+    chicken.x += chicken.vx * dt;
+    chicken.y += chicken.vy * dt;
 
     if (chicken.x < 0) { chicken.x = 0; chicken.vx = Math.abs(chicken.vx); }
-    if (chicken.x + s > w) { chicken.x = w - s; chicken.vx = -Math.abs(chicken.vx); }
+    if (chicken.x + chicken.width > width) { chicken.x = width - chicken.width; chicken.vx = -Math.abs(chicken.vx); }
     if (chicken.y < 0) { chicken.y = 0; chicken.vy = Math.abs(chicken.vy); }
-    if (chicken.y + s > h) { chicken.y = h - s; chicken.vy = -Math.abs(chicken.vy); }
+    if (chicken.y + chicken.height > height) { chicken.y = height - chicken.height; chicken.vy = -Math.abs(chicken.vy); }
 
-    if (Math.random() < 0.02) {
+    if (Math.random() < 1 - Math.pow(0.98, dt * 60)) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = Math.min(6, Math.sqrt(chicken.vx * chicken.vx + chicken.vy * chicken.vy) + (Math.random() - 0.5) * 2);
-      chicken.vx = Math.cos(angle) * Math.max(3, speed);
-      chicken.vy = Math.sin(angle) * Math.max(3, speed);
+      const speed = Math.min(360, Math.sqrt(chicken.vx * chicken.vx + chicken.vy * chicken.vy) + (Math.random() - 0.5) * 120);
+      chicken.vx = Math.cos(angle) * Math.max(180, speed);
+      chicken.vy = Math.sin(angle) * Math.max(180, speed);
     }
 
-    bobbing += 0.08;
+    bobbing += 4.8 * dt;
+  }
+
+  function getBobOffset() {
+    return Math.sin(bobbing) * 2;
+  }
+
+  function updateHud() {
+    if (catchCount) catchCount.textContent = count.toString();
+    if (scoreEl) scoreEl.textContent = score.toString().padStart(4, '0');
+    if (streakEl) streakEl.textContent = streak.toString();
+    if (bestReactionEl) bestReactionEl.textContent = bestReaction ? `${(bestReaction / 1000).toFixed(2)}s` : '--';
+    if (statusEl) statusEl.textContent = streak >= 3 ? `火热 x${Math.min(4, 1 + Math.floor(streak / 3))}` : '追捕中';
+  }
+
+  function showCallout(text: string, kind: 'hit' | 'miss') {
+    if (!comboCallout) return;
+    comboCallout.textContent = text;
+    comboCallout.className = `combo-callout visible ${kind}`;
+    window.clearTimeout(calloutTimer);
+    calloutTimer = window.setTimeout(() => comboCallout.classList.remove('visible'), 650);
+  }
+
+  function addEffect(x: number, y: number, kind: 'hit' | 'miss') {
+    effects.push({ x, y, age: 0, duration: kind === 'hit' ? 520 : 360, kind });
+  }
+
+  function updateEffects(dtMs: number) {
+    for (let i = effects.length - 1; i >= 0; i--) {
+      effects[i].age += dtMs;
+      if (effects[i].age >= effects[i].duration) effects.splice(i, 1);
+    }
+  }
+
+  function drawEffects() {
+    effects.forEach((effect) => {
+      const progress = effect.age / effect.duration;
+      const alpha = 1 - progress;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = effect.kind === 'hit' ? '#ea95b3' : '#ffffff';
+      ctx.lineWidth = effect.kind === 'hit' ? 4 : 2;
+      ctx.beginPath();
+      ctx.arc(effect.x, effect.y, 12 + progress * (effect.kind === 'hit' ? 64 : 28), 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (effect.kind === 'hit') {
+        ctx.fillStyle = '#fcd550';
+        for (let i = 0; i < 8; i++) {
+          const angle = (Math.PI * 2 * i) / 8;
+          const distance = 18 + progress * 72;
+          ctx.beginPath();
+          ctx.arc(effect.x + Math.cos(angle) * distance, effect.y + Math.sin(angle) * distance, 4 * alpha, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    });
   }
 
   function drawChicken(px: number, py: number) {
-    const s = chicken.size;
+    const { width, height } = chicken;
     if (sprite && sprite.complete && sprite.naturalWidth > 0) {
       ctx.save();
-      ctx.translate(px + s / 2, py + s / 2 + Math.sin(bobbing) * 2);
-      ctx.drawImage(sprite, -s / 2, -s / 2, s, s);
+      ctx.translate(px + width / 2, py + height / 2 + getBobOffset());
+      ctx.drawImage(sprite, -width / 2, -height / 2, width, height);
       ctx.restore();
     } else {
       ctx.save();
-      ctx.translate(px + s / 2, py + s / 2);
+      ctx.translate(px + width / 2, py + height / 2);
       ctx.fillStyle = '#ea95b3';
-      ctx.fillRect(-s / 2, -s / 2, s, s);
+      ctx.fillRect(-width / 2, -height / 2, width, height);
       ctx.fillStyle = '#fff';
-      ctx.font = `${s * 0.6}px sans-serif`;
+      ctx.font = `${height * 0.6}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🐔', 0, 0);
@@ -188,10 +342,26 @@
     }
   }
 
+  function isChickenHit(mx: number, my: number) {
+    const localX = mx - chicken.x;
+    const localY = my - chicken.y - getBobOffset();
+    if (localX < 0 || localX >= chicken.width || localY < 0 || localY >= chicken.height) {
+      return false;
+    }
+
+    if (!spritePixels || !spritePixelWidth || !spritePixelHeight) {
+      return true;
+    }
+
+    const pixelX = Math.min(spritePixelWidth - 1, Math.floor(localX / chicken.width * spritePixelWidth));
+    const pixelY = Math.min(spritePixelHeight - 1, Math.floor(localY / chicken.height * spritePixelHeight));
+    const alpha = spritePixels[(pixelY * spritePixelWidth + pixelX) * 4 + 3];
+    return alpha > ALPHA_HIT_THRESHOLD;
+  }
+
   function drawCage(cx: number, cy: number, progress: number) {
-    const s = chicken.size;
-    const cw = s + 24;
-    const ch = s + 24;
+    const cw = chicken.width + 24;
+    const ch = chicken.height + 24;
     const startY = cy - ch / 2 - 120;
     const endY = cy - ch / 2;
 
@@ -252,6 +422,18 @@
     lastCageTime = performance.now();
     chickenCaughtX = chicken.x;
     chickenCaughtY = chicken.y;
+    const reaction = Math.max(0, Math.round(performance.now() - targetLiveSince));
+    streak++;
+    const multiplier = Math.min(4, 1 + Math.floor(streak / 3));
+    const gained = Math.max(100, 1000 - reaction) * multiplier;
+    score += gained;
+    if (!bestReaction || reaction < bestReaction) {
+      bestReaction = reaction;
+      localStorage.setItem('yousa-catch-best-reaction', bestReaction.toString());
+    }
+    addEffect(chicken.x + chicken.width / 2, chicken.y + chicken.height / 2 + getBobOffset(), 'hit');
+    showCallout(`+${gained}${multiplier > 1 ? `  x${multiplier}` : ''}`, 'hit');
+    updateHud();
   }
 
   function updateCage() {
@@ -261,14 +443,15 @@
     cageTimer += dt;
 
     if (cagePhase === 0) {
-      if (cageTimer >= 500) { cagePhase = 1; cageTimer = 0; }
+      if (cageTimer >= 300) { cagePhase = 1; cageTimer = 0; }
     } else if (cagePhase === 1) {
-      if (cageTimer >= 400) { cagePhase = 2; cageTimer = 0; }
+      if (cageTimer >= 220) { cagePhase = 2; cageTimer = 0; }
     } else if (cagePhase === 2) {
-      if (cageTimer >= 500) {
+      if (cageTimer >= 300) {
         cageActive = false;
         count++;
-        if (catchCount) catchCount.textContent = count.toString();
+        localStorage.setItem('yousa-catch-count', count.toString());
+        updateHud();
         fetch('/api/catch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -280,9 +463,9 @@
   }
 
   function getCageProgress(): number {
-    if (cagePhase === 0) return cageTimer / 500;
-    if (cagePhase === 1) return 1 + (cageTimer / 400);
-    return 1.4 + (cageTimer / 500);
+    if (cagePhase === 0) return cageTimer / 300;
+    if (cagePhase === 1) return 1 + 0.4 * (cageTimer / 220);
+    return 1.4 + 0.6 * (cageTimer / 300);
   }
 
   function updateEntry() {
@@ -297,6 +480,7 @@
       entering = false;
       chicken.x = enterToX;
       chicken.y = enterToY;
+      targetLiveSince = performance.now();
     }
   }
 
@@ -312,32 +496,44 @@
 
     if (entering) {
       drawChicken(chicken.x, chicken.y);
+      drawEffects();
       return;
     }
 
     if (cageActive) {
       drawChicken(chickenCaughtX, chickenCaughtY);
-      drawCage(chickenCaughtX + chicken.size / 2, chickenCaughtY + chicken.size / 2, getCageProgress());
+      drawCage(
+        chickenCaughtX + chicken.width / 2,
+        chickenCaughtY + chicken.height / 2 + getBobOffset(),
+        getCageProgress()
+      );
+      drawEffects();
       return;
     }
 
     drawChicken(chicken.x, chicken.y);
+    drawEffects();
   }
 
-  function gameLoop() {
+  function gameLoop(now: number) {
+    const dtMs = lastFrameTime ? Math.min(32, now - lastFrameTime) : 16.67;
+    const dt = dtMs / 1000;
+    lastFrameTime = now;
     if (entering) {
       updateEntry();
     } else if (cageActive) {
       updateCage();
     } else {
-      updatePhysics();
+      updatePhysics(dt);
     }
+    updateEffects(dtMs);
     render();
     animId = requestAnimationFrame(gameLoop);
   }
 
   function startGameLoop() {
     if (animId) cancelAnimationFrame(animId);
+    lastFrameTime = 0;
     animId = requestAnimationFrame(gameLoop);
   }
 
@@ -348,11 +544,15 @@
     }
     entering = false;
     cageActive = false;
+    effects.length = 0;
   }
 
   function openGame() {
     if (isExpanded || loading) return;
     loading = true;
+    score = 0;
+    streak = 0;
+    updateHud();
 
     const rect = tabThumb.getBoundingClientRect();
 
@@ -389,6 +589,7 @@
     setTimeout(() => {
       heroChicken.style.display = 'none';
       initCanvas();
+      updateHud();
       loading = false;
     }, 600);
   }
@@ -433,9 +634,13 @@
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const s = chicken.size;
-    if (mx >= chicken.x && mx <= chicken.x + s && my >= chicken.y && my <= chicken.y + s) {
+    if (isChickenHit(mx, my)) {
       startCage();
+    } else {
+      streak = 0;
+      addEffect(mx, my, 'miss');
+      showCallout('MISS', 'miss');
+      updateHud();
     }
   });
 
@@ -452,12 +657,16 @@
   fetch('/api/catch')
     .then(res => res.json())
     .then(data => {
-      if (catchCount && data.count) {
+      if (catchCount && Number.isFinite(data.count)) {
         catchCount.textContent = data.count.toString();
         count = data.count;
+        localStorage.setItem('yousa-catch-count', count.toString());
+        updateHud();
       }
     })
     .catch(() => {});
+
+  updateHud();
 </script>
 
 <style is:global>
@@ -554,41 +763,107 @@
   .game-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
+    align-items: flex-end;
+    gap: 24px;
+    margin-bottom: 18px;
     flex-shrink: 0;
+  }
+
+  .game-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: max-content;
   }
 
   .game-header h2 {
     font-size: 24px;
     font-weight: 700;
     color: #222;
+    line-height: 1;
   }
 
-  .catch-counter {
-    font-size: 14px;
-    color: var(--color-text-light);
-    padding: 8px 16px;
-    background: var(--color-card-bg);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-card-border);
+  .game-status {
+    min-width: 70px;
+    padding: 5px 8px;
+    border: 1px solid rgba(34, 34, 34, 0.18);
+    border-radius: var(--radius-sm);
+    color: #444;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
   }
 
-  .catch-counter b {
+  .game-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(74px, 1fr));
+    width: min(520px, 100%);
+    border: 1px solid rgba(34, 34, 34, 0.14);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.24);
+  }
+
+  .game-stat {
+    min-width: 0;
+    padding: 7px 12px;
+    border-right: 1px solid rgba(34, 34, 34, 0.12);
+    text-align: right;
+  }
+
+  .game-stat:last-child {
+    border-right: 0;
+  }
+
+  .game-stat span {
+    display: block;
+    margin-bottom: 3px;
+    color: rgba(34, 34, 34, 0.58);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .game-stat b {
+    display: block;
+    min-height: 17px;
+    color: #222;
     font-family: var(--font-pixel);
-    font-size: 18px;
-    color: var(--color-pink);
+    font-size: 12px;
+    line-height: 17px;
+    white-space: nowrap;
+  }
+
+  .game-stat:nth-child(2) b,
+  .catch-counter b {
+    color: #c34875;
+  }
+
+  .game-stat:nth-child(3) b {
+    color: #27738f;
   }
 
   .canvas-wrap {
     flex: 1;
     position: relative;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: var(--radius-lg);
-    border: 2px dashed var(--color-card-border);
+    background-color: rgba(255, 255, 255, 0.28);
+    background-image:
+      linear-gradient(rgba(34, 34, 34, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 34, 34, 0.045) 1px, transparent 1px);
+    background-size: 32px 32px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(34, 34, 34, 0.2);
     overflow: hidden;
     min-height: 0;
     transition: opacity 0.2s ease;
+  }
+
+  .canvas-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 80px rgba(39, 115, 143, 0.08);
   }
 
   .canvas-wrap.fade-out {
@@ -602,6 +877,37 @@
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     cursor: crosshair;
+    touch-action: manipulation;
+  }
+
+  .combo-callout {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    min-width: 120px;
+    transform: translate(-50%, -40%) scale(0.9);
+    opacity: 0;
+    pointer-events: none;
+    font-family: var(--font-pixel);
+    font-size: 24px;
+    text-align: center;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.72);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+
+  .combo-callout.visible {
+    transform: translate(-50%, -65%) scale(1);
+    opacity: 1;
+  }
+
+  .combo-callout.hit {
+    color: #c34875;
+  }
+
+  .combo-callout.miss {
+    color: rgba(34, 34, 34, 0.55);
+    font-size: 16px;
   }
 
   .close-tab {
@@ -653,6 +959,46 @@
     .game-tab.hover .tab-thumb {
       width: 78px;
       height: 78px;
+    }
+
+    .game-panel {
+      padding: 20px 14px 14px;
+    }
+
+    .game-header {
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    .game-title {
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .game-header h2 {
+      font-size: 20px;
+    }
+
+    .game-stats {
+      width: 100%;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .game-stat {
+      padding: 7px 5px;
+      text-align: center;
+    }
+
+    .game-stat b {
+      font-size: 9px;
+    }
+
+    .game-stat span {
+      font-size: 9px;
+    }
+
+    .combo-callout {
+      font-size: 18px;
     }
   }
 </style>
