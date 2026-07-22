@@ -4,6 +4,8 @@ import albumsData from '../../data/albums.json';
 const { albums } = albumsData;
 ---
 
+<div class="timeline-end-guard" id="timeline-end-guard" aria-hidden="true"></div>
+
 <div class="timeline-section" id="timeline-section">
   <div class="timeline-handle">
     <div class="handle-bar"></div>
@@ -32,6 +34,34 @@ const { albums } = albumsData;
 </div>
 
 <script>
+  import { clearSceneBlur, setSceneBlur } from '../../scripts/scene-blur-controller';
+
+  const timelineSection = document.getElementById('timeline-section');
+  let blurFrame = 0;
+
+  function updateTimelineDepth() {
+    blurFrame = 0;
+    if (!timelineSection) return;
+
+    const viewport = window.visualViewport;
+    const viewportHeight = Math.max(viewport?.height ?? window.innerHeight, 1);
+    const viewportTop = viewport?.pageTop ?? window.scrollY;
+    const sectionTop = timelineSection.getBoundingClientRect().top;
+    const progress = Math.min(1, Math.max(0, (viewportHeight - sectionTop) / viewportHeight));
+    const isActive = progress > 0.001;
+    const remainingScroll = document.documentElement.scrollHeight - (viewportTop + viewportHeight);
+    const isAtEnd = isActive && remainingScroll <= 2;
+
+    setSceneBlur('timeline', progress * 18);
+    document.documentElement.classList.toggle('timeline-active', isActive);
+    document.documentElement.classList.toggle('timeline-at-end', isAtEnd);
+  }
+
+  function queueTimelineDepthUpdate() {
+    if (blurFrame) return;
+    blurFrame = requestAnimationFrame(updateTimelineDepth);
+  }
+
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -43,17 +73,76 @@ const { albums } = albumsData;
   document.querySelectorAll('.timeline-item').forEach(item => {
     observer.observe(item);
   });
+
+  window.addEventListener('scroll', queueTimelineDepthUpdate, { passive: true });
+  window.addEventListener('resize', queueTimelineDepthUpdate);
+  window.visualViewport?.addEventListener('scroll', queueTimelineDepthUpdate, { passive: true });
+  window.visualViewport?.addEventListener('resize', queueTimelineDepthUpdate);
+  queueTimelineDepthUpdate();
+
+  function cleanupTimelineDepth() {
+    if (blurFrame) cancelAnimationFrame(blurFrame);
+    observer.disconnect();
+    window.removeEventListener('scroll', queueTimelineDepthUpdate);
+    window.removeEventListener('resize', queueTimelineDepthUpdate);
+    window.visualViewport?.removeEventListener('scroll', queueTimelineDepthUpdate);
+    window.visualViewport?.removeEventListener('resize', queueTimelineDepthUpdate);
+    clearSceneBlur('timeline');
+    document.documentElement.classList.remove('timeline-active');
+    document.documentElement.classList.remove('timeline-at-end');
+  }
+
+  document.addEventListener('astro:before-swap', cleanupTimelineDepth, { once: true });
 </script>
 
 <style>
+  :global(html.timeline-active) {
+    background: #83a9bc;
+    overscroll-behavior-y: none;
+  }
+
+  :global(html.timeline-active body) {
+    background: #83a9bc;
+  }
+
+  .timeline-section,
+  .timeline-end-guard {
+    --timeline-end-guard-height: max(96px, calc(var(--safe-bottom) + 64px));
+  }
+
+  .timeline-end-guard {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--timeline-end-guard-height);
+    visibility: hidden;
+    opacity: 0;
+    background: #83a9bc;
+    pointer-events: none;
+    z-index: 249;
+  }
+
+  :global(html.timeline-at-end) .timeline-end-guard {
+    visibility: visible;
+    opacity: 1;
+  }
+
   .timeline-section {
     position: relative;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: 0 48px 96px;
+    padding: 0 48px 180px;
+    padding-bottom: max(180px, 30svh);
     margin-top: 100vh;
     margin-top: 100svh;
-    background: var(--color-blue-80);
+    background: linear-gradient(
+      to bottom,
+      var(--color-blue-80) 0,
+      var(--color-blue-80) calc(100% - var(--timeline-end-guard-height) - var(--timeline-end-guard-height)),
+      #83a9bc calc(100% - var(--timeline-end-guard-height)),
+      #83a9bc 100%
+    );
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     z-index: 250;
   }
@@ -164,7 +253,7 @@ const { albums } = albumsData;
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-radius: inherit;
     border-top: 2px solid rgba(220, 240, 255, 0.7);
     pointer-events: none;
     z-index: 10;
@@ -214,7 +303,8 @@ const { albums } = albumsData;
 
   @media (max-width: 760px) {
     .timeline-section {
-      padding: 0 16px calc(96px + var(--safe-bottom));
+      padding: 0 16px calc(180px + var(--safe-bottom));
+      padding-bottom: max(calc(180px + var(--safe-bottom)), calc(30svh + var(--safe-bottom)));
       border-radius: 20px 20px 0 0;
     }
 

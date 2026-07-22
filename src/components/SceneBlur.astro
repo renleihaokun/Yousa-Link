@@ -1,0 +1,18 @@
+<div class="scene-blur-layer" id="scene-blur-layer" aria-hidden="true"></div>
+
+<style>
+  .scene-blur-layer {
+    --scene-blur: 0px;
+    position: fixed;
+    inset: 0;
+    z-index: 240;
+    visibility: hidden;
+    pointer-events: none;
+    backdrop-filter: blur(var(--scene-blur));
+    -webkit-backdrop-filter: blur(var(--scene-blur));
+  }
+
+  .scene-blur-layer.active {
+    visibility: visible;
+  }
+</style>

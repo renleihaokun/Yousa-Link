@@ -29,11 +29,18 @@
 </div>
 
 <button class="close-edge" id="close-edge" type="button" aria-label="关闭画廊">
-  <span class="close-arrow">‹</span>
+  <span class="gallery-close-arrow" aria-hidden="true">‹</span>
+  <span class="gallery-close-icon" aria-hidden="true">×</span>
 </button>
 
 <script>
   import { closePanel, onPanelClose, openPanel } from '../../scripts/panel-controller';
+  import {
+    animateSceneBlur,
+    clearSceneBlur,
+    getCurrentSceneBlur,
+    setSceneBlur
+  } from '../../scripts/scene-blur-controller';
 
   const container = document.getElementById('gallery-container');
   const backdrop = document.getElementById('gallery-backdrop');
@@ -277,7 +284,8 @@
       animateElement(backdrop, [
         { clipPath: backdropClip },
         { clipPath: 'inset(0 100% 0 0)' }
-      ], { duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' })
+      ], { duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' }),
+      animateSceneBlur('gallery', 0, duration)
     ];
 
     await Promise.all(animations);
@@ -290,6 +298,7 @@
     panelBody!.style.display = 'none';
     container?.classList.remove('expanded', 'is-closing');
     closePanel('gallery');
+    clearSceneBlur('gallery');
     void container?.offsetWidth;
 
     heroImage.style.display = 'none';
@@ -348,6 +357,7 @@
     container?.classList.add('motion-active', 'expanded', 'is-opening');
     isExpanded = true;
     openPanel('gallery');
+    setSceneBlur('gallery', getCurrentSceneBlur());
     panelBody!.style.display = 'flex';
     panelBody!.style.opacity = '0';
     await nextFrame();
@@ -357,6 +367,7 @@
     const targetRect = getHeroTargetRect();
     if (targetRect.width === 0) {
       panelBody!.style.opacity = '1';
+      setSceneBlur('gallery', 18);
       motionState = 'open';
       container?.classList.remove('motion-active', 'is-opening');
       return;
@@ -364,7 +375,7 @@
 
     placeHero(targetRect);
     tabPreview.style.visibility = 'hidden';
-    const duration = reduceMotion.matches ? 0 : 420;
+    const duration = reduceMotion.matches ? 0 : 600;
     const startTransform = heroTransform(entryRect, targetRect);
 
     await Promise.all([
@@ -375,7 +386,8 @@
       animateElement(heroImage, [
         { transform: startTransform, borderRadius: '8px' },
         { transform: 'none', borderRadius: '10px' }
-      ], { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' })
+      ], { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }),
+      animateSceneBlur('gallery', 18, duration)
     ]);
     if (version !== transitionVersion) return;
 
@@ -385,7 +397,7 @@
     heroImage.style.borderRadius = '10px';
     cancelMotion();
 
-    if (!reduceMotion.matches) await new Promise<void>((resolve) => setTimeout(resolve, 120));
+    if (!reduceMotion.matches) await new Promise<void>((resolve) => setTimeout(resolve, 160));
     if (version !== transitionVersion) return;
 
     await loadGallery();
@@ -396,11 +408,11 @@
       animateElement(heroImage, [
         { opacity: 1, transform: 'none' },
         { opacity: 0, transform: 'scale(0.98)' }
-      ], { duration: reduceMotion.matches ? 0 : 220, easing: 'ease', fill: 'forwards' }),
+      ], { duration: reduceMotion.matches ? 0 : 280, easing: 'ease', fill: 'forwards' }),
       animateElement(panelBody, [
         { opacity: 0, transform: 'translate3d(0, 12px, 0)' },
         { opacity: 1, transform: 'translate3d(0, 0, 0)' }
-      ], { duration: reduceMotion.matches ? 0 : 220, easing: 'ease', fill: 'forwards' })
+      ], { duration: reduceMotion.matches ? 0 : 280, easing: 'ease', fill: 'forwards' })
     ]);
     if (version !== transitionVersion) return;
 
@@ -442,6 +454,7 @@
   }, { passive: true });
 
   onPanelClose('gallery', closeGallery);
+  document.addEventListener('astro:before-swap', () => clearSceneBlur('gallery'), { once: true });
 
   loadStickers().then(updatePreview);
 </script>
@@ -463,6 +476,7 @@
     overflow: hidden;
     background: rgba(255, 255, 255, 0.3);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 105, 180, 0.3);
     border-left: none;
     transition:
@@ -506,6 +520,8 @@
     transform: none;
     border-radius: 0;
     background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     z-index: 300;
   }
 
@@ -611,9 +627,13 @@
     padding-left: 16px;
   }
 
-  .close-arrow {
+  .gallery-close-arrow {
     font-size: 26px;
     color: var(--color-pink);
+  }
+
+  .gallery-close-icon {
+    display: none;
   }
 
   .gallery-header {
@@ -713,6 +733,12 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gallery-item {
+      animation: none;
     }
   }
 
@@ -898,6 +924,42 @@
     .gallery-header {
       min-height: 44px;
       margin-bottom: 12px;
+      padding-right: 52px;
+    }
+
+    .close-edge {
+      top: var(--safe-top);
+      right: var(--safe-right);
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      transform: none;
+      justify-content: center;
+      border: 1px solid rgba(34, 34, 34, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.3);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .gallery-container.expanded ~ .close-edge {
+      transform: none;
+    }
+
+    .close-edge:hover {
+      padding: 0;
+      background: rgba(255, 255, 255, 0.42);
+    }
+
+    .gallery-close-arrow {
+      display: none;
+    }
+
+    .gallery-close-icon {
+      display: block;
+      color: #222;
+      font-size: 26px;
+      font-weight: 300;
+      line-height: 1;
     }
 
     .lightbox-image {

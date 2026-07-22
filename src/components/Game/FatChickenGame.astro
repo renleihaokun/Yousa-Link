@@ -42,12 +42,19 @@
   </div>
 
   <button class="close-tab" id="close-tab" type="button" aria-label="关闭游戏">
-    <span>›</span>
+    <span class="game-close-arrow" aria-hidden="true">›</span>
+    <span class="game-close-icon" aria-hidden="true">×</span>
   </button>
 </div>
 
 <script>
   import { closePanel, onPanelClose, openPanel } from '../../scripts/panel-controller';
+  import {
+    animateSceneBlur,
+    clearSceneBlur,
+    getCurrentSceneBlur,
+    setSceneBlur
+  } from '../../scripts/scene-blur-controller';
 
   const spriteSrc = '/images/game/yousa-chicken.png';
   const CHICKEN_HEIGHT = 64;
@@ -651,6 +658,7 @@
     gameContainer?.classList.add('expanded');
     isExpanded = true;
     openPanel('game');
+    setSceneBlur('game', getCurrentSceneBlur());
 
     await nextFrame();
     await nextFrame();
@@ -658,7 +666,7 @@
     if (version !== transitionVersion || !entryRect) return;
 
     placeHero(landingRect);
-    const duration = reduceMotion.matches ? 0 : 420;
+    const duration = reduceMotion.matches ? 0 : 750;
     await Promise.all([
       animateElement(panel, [
         { clipPath: 'inset(0 0 0 100%)' },
@@ -668,7 +676,8 @@
         { transform: heroTransform(entryRect, landingRect), borderRadius: '8px' },
         { transform: `translate3d(${(entryRect.left - landingRect.left) * 0.18}px, ${(entryRect.top - landingRect.top) * 0.18 - 18}px, 0) scale(1.08) rotate(-3deg)`, borderRadius: '10px', offset: 0.72 },
         { transform: 'none', borderRadius: '8px' }
-      ], { duration: reduceMotion.matches ? 0 : 500, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' })
+      ], { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }),
+      animateSceneBlur('game', 18, duration)
     ]);
     if (version !== transitionVersion) return;
 
@@ -704,10 +713,13 @@
     }
     panel?.classList.add('motion-active');
     const duration = reduceMotion.matches ? 0 : 380;
-    await animateElement(panel, [
-      { clipPath: panel!.style.clipPath },
-      { clipPath: 'inset(0 0 0 100%)' }
-    ], { duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' });
+    await Promise.all([
+      animateElement(panel, [
+        { clipPath: panel!.style.clipPath },
+        { clipPath: 'inset(0 0 0 100%)' }
+      ], { duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' }),
+      animateSceneBlur('game', 0, duration)
+    ]);
     if (version !== transitionVersion) return;
 
     panel!.style.clipPath = 'inset(0 0 0 100%)';
@@ -715,6 +727,7 @@
     gameContainer?.classList.remove('expanded');
     panel?.classList.remove('expanded');
     closePanel('game');
+    clearSceneBlur('game');
     void panel?.offsetWidth;
 
     stopGame();
@@ -769,6 +782,7 @@
   });
 
   onPanelClose('game', closeGame);
+  document.addEventListener('astro:before-swap', () => clearSceneBlur('game'), { once: true });
 
   document.addEventListener('mousemove', (e) => {
     if (isExpanded) return;
@@ -1078,9 +1092,13 @@
     padding-right: 16px;
   }
 
-  .close-tab span {
+  .game-close-arrow {
     font-size: 26px;
     color: var(--color-pink);
+  }
+
+  .game-close-icon {
+    display: none;
   }
 
   @media (max-width: 700px) {
@@ -1178,6 +1196,46 @@
 
     .game-panel {
       padding: max(18px, var(--safe-top)) 14px max(14px, var(--safe-bottom));
+    }
+
+    .game-title {
+      padding-right: 52px;
+    }
+
+    .close-tab {
+      top: var(--safe-top);
+      right: var(--safe-right);
+      left: auto;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      transform: none;
+      justify-content: center;
+      border: 1px solid rgba(34, 34, 34, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.3);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .game-container.expanded .close-tab {
+      transform: none;
+    }
+
+    .close-tab:hover {
+      padding: 0;
+      background: rgba(255, 255, 255, 0.42);
+    }
+
+    .game-close-arrow {
+      display: none;
+    }
+
+    .game-close-icon {
+      display: block;
+      color: #222;
+      font-size: 26px;
+      font-weight: 300;
+      line-height: 1;
     }
 
   }
