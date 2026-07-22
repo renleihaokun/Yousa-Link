@@ -14,9 +14,9 @@
       <img class="song-cover" id="song-cover" src="" alt="封面" />
       <div class="song-title" id="song-title">加载中...</div>
       <div class="control-buttons">
-        <button class="ctrl-btn" id="prev-btn">⏮</button>
-        <button class="ctrl-btn play-btn" id="play-btn">▶</button>
-        <button class="ctrl-btn" id="next-btn">⏭</button>
+        <button class="ctrl-btn" id="prev-btn" type="button" aria-label="随机上一首" title="随机上一首">⏮</button>
+        <button class="ctrl-btn play-btn" id="play-btn" type="button" aria-label="播放" title="播放">▶</button>
+        <button class="ctrl-btn" id="next-btn" type="button" aria-label="随机下一首" title="随机下一首">⏭</button>
       </div>
     </div>
     <div class="progress-bar" id="progress-bar">
@@ -26,10 +26,11 @@
 </div>
 
 <script>
+  import { getNetworkInfo } from '../../scripts/network-info';
+
   async function fetchNetworkInfo() {
     try {
-      const response = await fetch('https://ip.nemui.cn/api/ip');
-      const data = await response.json();
+      const data = await getNetworkInfo();
       document.getElementById('ip-address')!.textContent = data.ip || '未知';
     } catch {
       document.getElementById('ip-address')!.textContent = '离线';
@@ -105,12 +106,15 @@
     const fill = document.getElementById('progress-fill');
     if (fill && currentAudio.duration) {
       const percent = (currentAudio.currentTime / currentAudio.duration) * 100;
-      fill.style.width = `${percent}%`;
+      fill.style.transform = `scaleX(${percent / 100})`;
     }
   }
 
   function setPlayingState(playing: boolean) {
     const cover = document.getElementById('song-cover');
+    const playButton = document.getElementById('play-btn');
+    playButton?.setAttribute('aria-label', playing ? '暂停' : '播放');
+    playButton?.setAttribute('title', playing ? '暂停' : '播放');
     if (playing) {
       cover?.classList.add('playing');
     } else {
@@ -139,7 +143,7 @@
     currentIndex = getRandomIndex(currentIndex);
     updateSongDisplay();
     const fill = document.getElementById('progress-fill');
-    if (fill) fill.style.width = '0%';
+    if (fill) fill.style.transform = 'scaleX(0)';
     if (currentAudio) {
       createAudio();
       if (isPlaying) safePlay(currentAudio!);
@@ -152,7 +156,7 @@
     currentIndex = getRandomIndex(currentIndex);
     updateSongDisplay();
     const fill = document.getElementById('progress-fill');
-    if (fill) fill.style.width = '0%';
+    if (fill) fill.style.transform = 'scaleX(0)';
     if (currentAudio) {
       createAudio();
       if (isPlaying) safePlay(currentAudio!);
@@ -277,6 +281,8 @@
     cursor: pointer;
     color: var(--color-text);
     transition: color 0.2s;
+    min-width: 30px;
+    min-height: 36px;
   }
 
   .ctrl-btn:hover {
@@ -298,8 +304,10 @@
   .progress-fill {
     height: 100%;
     background: #ea95b3;
-    width: 0%;
-    transition: width 0.1s linear;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.1s linear;
   }
 
   @media (max-width: 900px) {
@@ -315,9 +323,16 @@
 
   @media (max-width: 700px) {
     .hud-panel {
-      top: 18px;
-      right: 18px;
+      top: var(--safe-top);
+      right: var(--safe-right);
       width: min(280px, calc(100vw - 148px));
+      padding: 10px 12px;
+      border-radius: 12px;
+    }
+
+    .network-section,
+    .divider {
+      display: none;
     }
 
     .network-section,
@@ -326,8 +341,27 @@
     }
 
     .song-cover {
-      width: 40px;
-      height: 40px;
+      width: 34px;
+      height: 34px;
+    }
+
+    .player-section {
+      gap: 6px;
+    }
+
+    .player-row {
+      gap: 8px;
+    }
+
+    .control-buttons {
+      min-width: 88px;
+      max-width: 96px;
+    }
+
+    .ctrl-btn {
+      min-width: 28px;
+      min-height: 38px;
+      font-size: 15px;
     }
   }
 </style>

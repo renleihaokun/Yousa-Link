@@ -42,6 +42,18 @@
   --radius-lg: 24px;
   --radius-xl: 32px;
 
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 160ms;
+  --duration-medium: 320ms;
+  --duration-slow: 520ms;
+
+  --safe-top: max(16px, env(safe-area-inset-top));
+  --safe-right: max(16px, env(safe-area-inset-right));
+  --safe-bottom: max(16px, env(safe-area-inset-bottom));
+  --safe-left: max(16px, env(safe-area-inset-left));
+  --page-gutter: clamp(16px, 3vw, 48px);
+
   --font-main: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-pixel: 'Press Start 2P', monospace;
 }
@@ -71,7 +83,35 @@ html:has(> body.panel-open) {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #000;
+}
+
+body[data-open-panel='game'] .gallery-container:not(.expanded),
+body[data-open-panel='gallery'] .game-tab {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  body.panel-open .gallery-container:not(.expanded),
+  body.panel-open .game-tab {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+  }
+}
+
+button,
+[role='button'] {
+  font: inherit;
+}
+
+button:focus-visible,
+[role='button']:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-pink);
+  outline-offset: 3px;
 }
 
 .card {
@@ -118,3 +158,19 @@ body {
   75% { transform: translate(1px, 1px); }
 }
 
+@media (max-width: 767px) {
+  :root {
+    --page-gutter: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

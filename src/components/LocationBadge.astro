@@ -7,10 +7,11 @@
 </div>
 
 <script>
+  import { getNetworkInfo } from '../scripts/network-info';
+
   async function detectCity() {
     try {
-      const response = await fetch('https://ip.nemui.cn/api/ip');
-      const data = await response.json();
+      const data = await getNetworkInfo();
       const city = data.location?.city || '未知';
       document.getElementById('current-city')!.textContent = city;
     } catch {
@@ -55,9 +56,10 @@
 
   @media (max-width: 700px) {
     .location-badge {
-      top: 18px;
-      left: 18px;
-      padding: 14px 18px;
+      top: var(--safe-top);
+      left: var(--safe-left);
+      padding: 12px 14px;
+      border-radius: 12px;
     }
 
     .label {

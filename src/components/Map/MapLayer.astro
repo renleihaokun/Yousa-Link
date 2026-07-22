@@ -6,8 +6,12 @@
 </div>
 
 <script>
-  import * as echarts from 'echarts';
-  import { config } from '../../config';
+  import * as echarts from 'echarts/core';
+  import { EffectScatterChart, LinesChart, MapChart } from 'echarts/charts';
+  import { GeoComponent } from 'echarts/components';
+  import { CanvasRenderer } from 'echarts/renderers';
+
+  echarts.use([MapChart, LinesChart, EffectScatterChart, GeoComponent, CanvasRenderer]);
 
   // 主题蓝色值
   const THEME_BLUE = '#a4d3eb';
@@ -86,20 +90,32 @@
     const chartDom = document.getElementById('map-chart')!;
     const mainChart = echarts.init(chartDom);
 
+    let isPhone = window.matchMedia('(max-width: 767px)').matches;
+
+    const getViewportProfile = () => ({
+      center: isPhone ? [112.2, 31.5] : CENTER,
+      zoom: isPhone ? 5.35 : INIT_ZOOM,
+      roam: isPhone ? false : 'move',
+      symbolSize: isPhone ? 8 : 10,
+      labelSize: isPhone ? 10 : 12
+    });
+
+    const profile = getViewportProfile();
+
     mainChart.setOption({
       backgroundColor: 'transparent',
       geo: {
         map: 'world',
-        roam: 'move',
-        zoom: INIT_ZOOM,
-        center: CENTER,
+        roam: profile.roam,
+        zoom: profile.zoom,
+        center: profile.center,
         label: { show: false, color: THEME_BLUE },
         emphasis: {
           disabled: false,
           label: {
             show: true,
             color: THEME_BLUE,
-            fontSize: 12
+            fontSize: profile.labelSize
           },
           itemStyle: {
             areaColor: '#3a3a3a',
@@ -137,7 +153,7 @@
           clip: false,
           z: 2,
           symbol: 'circle',
-          symbolSize: 10,
+          symbolSize: profile.symbolSize,
           showEffectOn: 'render',
           rippleEffect: {
             brushType: 'stroke',
@@ -155,7 +171,7 @@
             position: 'right',
             formatter: '{b}',
             color: '#ccc',
-            fontSize: 12,
+            fontSize: profile.labelSize,
             textShadowColor: 'rgba(0,0,0,0.8)',
             textShadowBlur: 4
           },
@@ -184,155 +200,29 @@
       }
     });
 
-    window.addEventListener('resize', () => mainChart.resize());
-
-    if (config.effects.mapShake) {
-      startGroundStream();
-    }
-
-    function startGroundStream() {
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-      if (reducedMotion.matches) return;
-
-      const TAU = Math.PI * 2;
-      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-      const smootherstep = (v: number) => {
-        const t = clamp01(v);
-        return t * t * t * (t * (t * 6 - 15) + 10);
-      };
-
-      // === 持续微颤：保持小幅、较高频，作为全程气流底噪 ===
-      const MICRO_AX = [1.3, 0.8];
-      const MICRO_FX = [0.62, 1.18];   // cycles per second
-      const MICRO_PX = [0, 1.3];
-      const MICRO_AY = [1.0, 0.7];
-      const MICRO_FY = [0.58, 1.35];
-      const MICRO_PY = [2.1, 0.5];
-      const MICRO_R_AMP = 0.18;
-      const MICRO_R_FREQ = 0.42;
-
-      // === 漂移：慢慢偏离视窗，后段只轻微抬高抖动能量 ===
-      const DRIFT_AMP = 28;
-      const DRIFT_MIN = 11000;
-      const DRIFT_RANGE = 3000;
-      const WINDUP_START = 0.58;
-      const WINDUP_MAX = 2.35;
-
-      // === 归位：用温和晃动遮住地图回到原点，不做明显“强气流演出” ===
-      const RECOVER_MIN = 5200;
-      const RECOVER_RANGE = 1800;
-      const RECOVER_SHAKE = 1.15;
-
-      type MotionPhase = 'drift' | 'recover';
-
-      let phase: MotionPhase = 'drift';
-      let phaseStart = performance.now();
-      let curDriftDuration = DRIFT_MIN + Math.random() * DRIFT_RANGE;
-      let curRecoverDuration = RECOVER_MIN + Math.random() * RECOVER_RANGE;
-      let microScale = 1;
-      let rafId = 0;
-      let currentX = 0;
-      let currentY = 0;
-      let currentR = 0;
-
-      function microMotion(seconds: number, scale: number) {
-        const x = (MICRO_AX[0] * Math.sin(seconds * TAU * MICRO_FX[0] + MICRO_PX[0])
-                + MICRO_AX[1] * Math.sin(seconds * TAU * MICRO_FX[1] + MICRO_PX[1])) * scale;
-        const y = (MICRO_AY[0] * Math.sin(seconds * TAU * MICRO_FY[0] + MICRO_PY[0])
-                + MICRO_AY[1] * Math.sin(seconds * TAU * MICRO_FY[1] + MICRO_PY[1])) * scale;
-        const r = MICRO_R_AMP * scale * Math.sin(seconds * TAU * MICRO_R_FREQ);
-        return { x, y, r };
-      }
-
-      function coverWobble(seconds: number, amount: number) {
-        return {
-          x: amount * (3.2 * Math.sin(seconds * TAU * 0.34 + 0.4)
-            + 1.4 * Math.sin(seconds * TAU * 0.77 + 2.6)),
-          y: amount * (2.1 * Math.sin(seconds * TAU * 0.41 + 2.2)
-            + 0.9 * Math.sin(seconds * TAU * 0.88 + 0.7)),
-          r: amount * (0.34 * Math.sin(seconds * TAU * 0.27 + 1.1)
-            + 0.16 * Math.sin(seconds * TAU * 0.63 + 2.8))
-        };
-      }
-
-      function tick(time: number) {
-        rafId = requestAnimationFrame(tick);
-        const ms = time / 1000;
-        const elapsed = time - phaseStart;
-
-        // 微颤能量：只做背景增强，用来遮住归位，不制造强烈事件感。
-        let targetScale = 1;
-        if (phase === 'drift') {
-          const progress = Math.min(elapsed / curDriftDuration, 1);
-          if (progress > WINDUP_START) {
-            const p = smootherstep((progress - WINDUP_START) / (1 - WINDUP_START));
-            targetScale = 1 + (WINDUP_MAX - 1) * p;
-          }
-        } else {
-          const progress = Math.min(elapsed / curRecoverDuration, 1);
-          const p = smootherstep(progress);
-          targetScale = WINDUP_MAX + (1 - WINDUP_MAX) * p;
-        }
-        microScale += (targetScale - microScale) * 0.07;
-
-        const micro = microMotion(ms, microScale);
-        let targetX = micro.x;
-        let targetY = micro.y;
-        let targetR = micro.r;
-
-        if (phase === 'drift') {
-          const progress = Math.min(elapsed / curDriftDuration, 1);
-          const driftY = DRIFT_AMP * smootherstep(progress);
-          const pressure = smootherstep((progress - WINDUP_START) / (1 - WINDUP_START));
-          const cover = coverWobble(ms, pressure * RECOVER_SHAKE);
-
-          targetX += cover.x;
-          targetY += driftY + cover.y;
-          targetR += cover.r;
-
-          if (progress >= 1) {
-            phase = 'recover';
-            phaseStart = time;
-            curRecoverDuration = RECOVER_MIN + Math.random() * RECOVER_RANGE;
-            window.dispatchEvent(new CustomEvent('flight-turbulence'));
-          }
-        } else {
-          const progress = Math.min(elapsed / curRecoverDuration, 1);
-          const resetY = DRIFT_AMP * (1 - smootherstep(progress));
-          const cover = coverWobble(ms, (1 - smootherstep(progress)) * RECOVER_SHAKE);
-
-          targetX += cover.x;
-          targetY += resetY + cover.y;
-          targetR += cover.r;
-
-          if (progress >= 1) {
-            phase = 'drift';
-            phaseStart = time;
-            curDriftDuration = DRIFT_MIN + Math.random() * DRIFT_RANGE;
-            window.dispatchEvent(new CustomEvent('flight-turbulence-end'));
-          }
-        }
-
-        const follow = 0.18;
-        currentX += (targetX - currentX) * follow;
-        currentY += (targetY - currentY) * follow;
-        currentR += (targetR - currentR) * follow;
-
-        chartDom.style.transform =
-          `translate3d(${currentX}px, ${currentY}px, 0) rotate(${currentR}deg)`;
-      }
-
-      const cleanup = () => {
-        cancelAnimationFrame(rafId);
-        chartDom.style.transform = '';
-        window.removeEventListener('pagehide', cleanup);
-        document.removeEventListener('astro:before-swap', cleanup);
-      };
-
-      rafId = requestAnimationFrame(tick);
-      window.addEventListener('pagehide', cleanup);
-      document.addEventListener('astro:before-swap', cleanup);
-    }
+    let resizeFrame = 0;
+    window.addEventListener('resize', () => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        mainChart.resize();
+        const nextIsPhone = window.matchMedia('(max-width: 767px)').matches;
+        if (nextIsPhone === isPhone) return;
+        isPhone = nextIsPhone;
+        const nextProfile = getViewportProfile();
+        mainChart.setOption({
+          geo: {
+            roam: nextProfile.roam,
+            zoom: nextProfile.zoom,
+            center: nextProfile.center,
+            emphasis: { label: { fontSize: nextProfile.labelSize } }
+          },
+          series: [
+            {},
+            { symbolSize: nextProfile.symbolSize, label: { fontSize: nextProfile.labelSize } }
+          ]
+        });
+      });
+    });
   }
 
   initMap();
@@ -345,6 +235,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     z-index: 0;
     background: #000;
     overflow: hidden;
@@ -356,14 +247,21 @@
     left: -6vw;
     width: 112vw;
     height: 112vh;
+    height: 112dvh;
     cursor: grab;
     transform-origin: center;
-    will-change: transform;
     backface-visibility: hidden;
   }
 
   .map-chart:active {
     cursor: grabbing;
+  }
+
+  @media (max-width: 767px) {
+    .map-chart {
+      pointer-events: none;
+      cursor: default;
+    }
   }
 
 

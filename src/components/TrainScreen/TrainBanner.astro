@@ -95,6 +95,11 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
                   </div>
                   <div class="card-meta">
                     <span class="card-date">{item.dateDisplay}</span>
+                    <span
+                      class="mobile-status"
+                      data-tour-date={item.date}
+                      data-tour-delay={item.delay ?? 0}
+                    >{item.daysText}</span>
                     {item.venue && (
                       <><span class="meta-sep">·</span><span class="card-venue">{item.venue}</span></>
                     )}
@@ -111,7 +116,11 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
                   </div>
                   <div class="card-status" class:list={{ 'is-past': item.isPast }}>
                     <span class="status-label">{item.isPast ? '实际' : '预计'}</span>
-                    <span class="status-value">{item.daysText}·{item.delayText}</span>
+                    <span
+                      class="status-value"
+                      data-tour-date={item.date}
+                      data-tour-delay={item.delay ?? 0}
+                    >{item.daysText}·{item.delayText}</span>
                   </div>
                 </div>
               </>
@@ -144,6 +153,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 </div>
 
 <script>
+  import { closePanel, onPanelClose, openPanel } from '../../scripts/panel-controller';
+
   const stack = document.getElementById('card-stack');
   const footer = document.getElementById('stack-footer');
 
@@ -175,7 +186,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     stack.classList.add('expanded');
     playRebound('expand');
     footer?.classList.add('visible');
-    document.body.classList.add('panel-open');
+    openPanel('train');
   }
 
   function collapse() {
@@ -183,7 +194,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     stack.classList.remove('expanded');
     playRebound('collapse');
     footer?.classList.remove('visible');
-    document.body.classList.remove('panel-open');
+    closePanel('train');
   }
 
   const obs = new MutationObserver(() => {
@@ -193,19 +204,11 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   });
   obs.observe(stack, { attributes: true, attributeFilter: ['class'] });
 
-  stack.addEventListener('click', () => {
-    if (!stack.classList.contains('expanded')) {
-      expand();
-    }
-  });
-
-  stack.querySelectorAll('.tour-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (stack.classList.contains('expanded')) {
-        e.stopPropagation();
-        collapse();
-      }
-    });
+  stack.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('a')) return;
+    if (stack.classList.contains('expanded')) collapse();
+    else expand();
   });
 
   document.addEventListener('click', (e) => {
@@ -215,6 +218,29 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     if (!target.closest('.card-stack')) {
       collapse();
     }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') collapse();
+  });
+
+  onPanelClose('train', collapse);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  document.querySelectorAll<HTMLElement>('[data-tour-date]').forEach((element) => {
+    const rawDate = element.dataset.tourDate;
+    if (!rawDate) return;
+    const effectiveDate = new Date(rawDate);
+    const delay = Number(element.dataset.tourDelay || 0);
+    effectiveDate.setDate(effectiveDate.getDate() + delay);
+    effectiveDate.setHours(0, 0, 0, 0);
+    const days = Math.round((effectiveDate.getTime() - today.getTime()) / 86400000);
+    const daysText = days > 0 ? `${days}天后` : days < 0 ? `${Math.abs(days)}天前` : '今天';
+    const delayText = delay > 0 ? `晚点${delay}天` : delay < 0 ? `提前${Math.abs(delay)}天` : '正点';
+    element.textContent = element.classList.contains('status-value')
+      ? `${daysText}·${delayText}`
+      : daysText;
   });
 
   window.__collapseTrainScreen = collapse;
@@ -244,16 +270,15 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
       border 0.35s ease;
     cursor: pointer;
     transform-origin: top center;
-    will-change: height, transform;
   }
 
   .card-stack.expanded {
-    height: var(--expanded-h);
+    height: min(var(--expanded-h), calc(100dvh - 40px));
     background: rgba(10, 10, 15, 0.5);
     border: 1px solid rgba(255, 105, 180, 0.12);
     overflow-y: auto;
     overscroll-behavior: contain;
-    cursor: pointer;
+    cursor: default;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
@@ -279,7 +304,6 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
       opacity 0.4s ease;
     transition-delay: 0ms;
     transform-origin: center;
-    will-change: top, left, width, transform;
   }
 
   .card-stack:not(.expanded) .tour-card {
@@ -465,6 +489,12 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     color: var(--color-purple);
   }
 
+  .mobile-status {
+    display: none;
+    color: #4ade80;
+    white-space: nowrap;
+  }
+
   .meta-sep {
     color: var(--color-text-light);
   }
@@ -493,7 +523,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     position: absolute;
     left: 30px;
     width: calc(100% - 60px);
-    bottom: 12px;
+    top: calc(var(--expanded-h) - 42px);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -545,11 +575,24 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     .train-screen {
       top: 128px;
     }
+
+    .card-stack.expanded {
+      height: min(var(--expanded-h), calc(100dvh - 148px));
+    }
   }
 
   @media (max-width: 700px) {
     .train-screen {
-      top: 112px;
+      top: 110px;
+    }
+
+    .card-stack {
+      width: calc(100vw - 32px);
+    }
+
+    .card-stack.expanded {
+      height: min(var(--expanded-h), calc(100dvh - 126px));
+      border-radius: 20px;
     }
 
     .tour-card {
@@ -583,6 +626,10 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   @media (max-width: 520px) {
     .card-right {
       display: none;
+    }
+
+    .mobile-status {
+      display: inline;
     }
 
     .card-route,

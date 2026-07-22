@@ -2,10 +2,11 @@
 ---
 
 <div class="game-container" id="game-container">
-  <div class="game-tab" id="game-tab">
+  <button class="game-tab" id="game-tab" type="button" aria-label="打开抓肥鸡游戏">
     <span class="tab-arrow">‹</span>
     <img class="tab-thumb" id="tab-thumb" src="/images/game/yousa-chicken.png" alt="肥鸡" />
-  </div>
+    <span class="tab-label">抓肥鸡</span>
+  </button>
 
   <img class="hero-chicken" id="hero-chicken" src="/images/game/yousa-chicken.png" alt="" />
 
@@ -40,12 +41,14 @@
     </div>
   </div>
 
-  <div class="close-tab" id="close-tab">
+  <button class="close-tab" id="close-tab" type="button" aria-label="关闭游戏">
     <span>›</span>
-  </div>
+  </button>
 </div>
 
 <script>
+  import { closePanel, onPanelClose, openPanel } from '../../scripts/panel-controller';
+
   const spriteSrc = '/images/game/yousa-chicken.png';
   const CHICKEN_HEIGHT = 64;
   const DEFAULT_CHICKEN_RATIO = 500 / 380;
@@ -63,14 +66,20 @@
   const bestReactionEl = document.getElementById('best-reaction');
   const statusEl = document.getElementById('game-status');
   const comboCallout = document.getElementById('combo-callout');
+  type MotionState = 'closed' | 'opening' | 'open' | 'closing';
+  let motionState: MotionState = 'closed';
   let isExpanded = false;
-  let loading = false;
+  let transitionVersion = 0;
+  let entryRect: DOMRect | null = null;
+  let activeAnimations: Animation[] = [];
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let count = Math.max(0, Number.parseInt(localStorage.getItem('yousa-catch-count') || '0', 10) || 0);
   let score = 0;
   let streak = 0;
   let bestReaction = Math.max(0, Number.parseInt(localStorage.getItem('yousa-catch-best-reaction') || '0', 10) || 0);
   let animId = 0;
   let sprite: HTMLImageElement;
+  let spriteReady: Promise<void> | null = null;
   let ctx: CanvasRenderingContext2D;
   let lastFrameTime = 0;
   let targetLiveSince = 0;
@@ -117,10 +126,56 @@
   let enterDuration = 500;
   let enterStartTime = 0;
 
+  const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+  function cancelElementAnimations(element: Element | null, subtree = false) {
+    element?.getAnimations({ subtree }).forEach((animation) => animation.cancel());
+  }
+
+  function cancelMotion() {
+    activeAnimations.forEach((animation) => animation.cancel());
+    activeAnimations = [];
+    cancelElementAnimations(heroChicken);
+    cancelElementAnimations(panel, true);
+  }
+
+  function animateElement(
+    element: Element | null,
+    keyframes: Keyframe[],
+    options: KeyframeAnimationOptions
+  ) {
+    if (!element || reduceMotion.matches) return Promise.resolve();
+    const animation = element.animate(keyframes, options);
+    activeAnimations.push(animation);
+    return animation.finished.catch(() => undefined);
+  }
+
+  function placeHero(rect: DOMRect) {
+    Object.assign(heroChicken.style, {
+      display: 'block',
+      position: 'fixed',
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      borderRadius: '8px',
+      transform: 'none',
+      transformOrigin: 'top left',
+      opacity: '1',
+      zIndex: '302',
+      pointerEvents: 'none',
+      transition: 'none'
+    });
+  }
+
+  function heroTransform(from: DOMRect, to: DOMRect) {
+    return `translate3d(${from.left - to.left}px, ${from.top - to.top}px, 0) scale(${from.width / to.width}, ${from.height / to.height})`;
+  }
+
   function resizeCanvas() {
     const wrap = canvas.parentElement!;
     const rect = wrap.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     canvas.style.width = rect.width + 'px';
@@ -133,7 +188,7 @@
   }
 
   function getCanvasSize() {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     return {
       width: canvas.width / dpr,
       height: canvas.height / dpr
@@ -204,24 +259,47 @@
     enterStartTime = performance.now();
   }
 
-  function initCanvas() {
+  function ensureSprite() {
+    if (spriteReady) return spriteReady;
+    spriteReady = new Promise<void>((resolve) => {
+      sprite = new Image();
+      sprite.src = spriteSrc;
+      sprite.onload = () => {
+        const targetHeight = window.matchMedia('(max-width: 767px)').matches ? 78 : CHICKEN_HEIGHT;
+        chicken.width = targetHeight * (sprite.naturalWidth / sprite.naturalHeight);
+        chicken.height = targetHeight;
+        prepareSpritePixels();
+        resolve();
+      };
+      sprite.onerror = () => resolve();
+    });
+    return spriteReady;
+  }
+
+  async function prepareCanvasForLanding() {
     ctx = canvas.getContext('2d')!;
     resizeCanvas();
-    sprite = new Image();
-    sprite.src = spriteSrc;
-    sprite.onload = () => {
-      chicken.width = CHICKEN_HEIGHT * (sprite.naturalWidth / sprite.naturalHeight);
-      chicken.height = CHICKEN_HEIGHT;
-      prepareSpritePixels();
-      spawnChicken();
-      targetLiveSince = performance.now();
-      startGameLoop();
-    };
-    sprite.onerror = () => {
-      spawnChicken();
-      targetLiveSince = performance.now();
-      startGameLoop();
-    };
+    await ensureSprite();
+    const { width, height } = getCanvasSize();
+    chicken.x = Math.max(0, Math.min(width - chicken.width, width * 0.62 - chicken.width / 2));
+    chicken.y = Math.max(0, Math.min(height - chicken.height, height * 0.42 - chicken.height / 2));
+    const angle = Math.random() * Math.PI * 2;
+    chicken.vx = Math.cos(angle) * 260;
+    chicken.vy = Math.sin(angle) * 260;
+    entering = false;
+    cageActive = false;
+    bobbing = 0;
+    effects.length = 0;
+    targetLiveSince = performance.now();
+    ctx.clearRect(0, 0, width, height);
+
+    const canvasRect = canvas.getBoundingClientRect();
+    return new DOMRect(
+      canvasRect.left + chicken.x,
+      canvasRect.top + chicken.y,
+      chicken.width,
+      chicken.height
+    );
   }
 
   function prepareSpritePixels() {
@@ -489,8 +567,9 @@
   }
 
   function render() {
-    const w = canvas.width / (window.devicePixelRatio || 1);
-    const h = canvas.height / (window.devicePixelRatio || 1);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
 
     ctx.clearRect(0, 0, w, h);
 
@@ -547,90 +626,113 @@
     effects.length = 0;
   }
 
-  function openGame() {
-    if (isExpanded || loading) return;
-    loading = true;
+  async function openGame() {
+    if (motionState !== 'closed') return;
+    const version = ++transitionVersion;
+    motionState = 'opening';
+    cancelMotion();
+    Object.assign(heroChicken.style, {
+      display: 'none',
+      opacity: '1',
+      transform: 'none',
+      visibility: 'visible'
+    });
+    panel!.style.clipPath = reduceMotion.matches ? 'inset(0)' : 'inset(0 0 0 100%)';
     score = 0;
     streak = 0;
     updateHud();
 
-    const rect = tabThumb.getBoundingClientRect();
-
-    heroChicken.style.display = 'block';
-    heroChicken.style.position = 'fixed';
-    heroChicken.style.left = rect.left + 'px';
-    heroChicken.style.top = rect.top + 'px';
-    heroChicken.style.width = rect.width + 'px';
-    heroChicken.style.height = rect.height + 'px';
-    heroChicken.style.borderRadius = '8px';
-    heroChicken.style.zIndex = '301';
-    heroChicken.style.pointerEvents = 'none';
-    heroChicken.style.transition = 'none';
-    heroChicken.style.opacity = '1';
-
-    tabThumb.style.opacity = '0';
-
+    entryRect = tabThumb.getBoundingClientRect();
+    heroChicken.src = spriteSrc;
+    placeHero(entryRect);
+    tabThumb.style.visibility = 'hidden';
+    panel!.style.clipPath = reduceMotion.matches ? 'inset(0)' : 'inset(0 0 0 100%)';
+    panel?.classList.add('motion-active', 'expanded');
     gameContainer?.classList.add('expanded');
-    panel?.classList.add('expanded');
-    document.body.classList.add('panel-open');
-
-    void heroChicken.offsetHeight;
-
-    const targetSize = Math.min(window.innerHeight * 0.25, 128);
-    heroChicken.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-    heroChicken.style.width = targetSize + 'px';
-    heroChicken.style.height = targetSize + 'px';
-    heroChicken.style.left = (rect.left - (targetSize - rect.width) / 2) + 'px';
-    heroChicken.style.top = (rect.top - (targetSize - rect.height) / 2) + 'px';
-    heroChicken.style.borderRadius = '16px';
-
     isExpanded = true;
+    openPanel('game');
 
-    setTimeout(() => {
-      heroChicken.style.display = 'none';
-      initCanvas();
-      updateHud();
-      loading = false;
-    }, 600);
+    await nextFrame();
+    await nextFrame();
+    const landingRect = await prepareCanvasForLanding();
+    if (version !== transitionVersion || !entryRect) return;
+
+    placeHero(landingRect);
+    const duration = reduceMotion.matches ? 0 : 420;
+    await Promise.all([
+      animateElement(panel, [
+        { clipPath: 'inset(0 0 0 100%)' },
+        { clipPath: 'inset(0 0 0 0)' }
+      ], { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }),
+      animateElement(heroChicken, [
+        { transform: heroTransform(entryRect, landingRect), borderRadius: '8px' },
+        { transform: `translate3d(${(entryRect.left - landingRect.left) * 0.18}px, ${(entryRect.top - landingRect.top) * 0.18 - 18}px, 0) scale(1.08) rotate(-3deg)`, borderRadius: '10px', offset: 0.72 },
+        { transform: 'none', borderRadius: '8px' }
+      ], { duration: reduceMotion.matches ? 0 : 500, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' })
+    ]);
+    if (version !== transitionVersion) return;
+
+    panel!.style.clipPath = 'inset(0 0 0 0)';
+    heroChicken.style.transform = 'none';
+    heroChicken.style.opacity = '1';
+    render();
+    heroChicken.style.display = 'none';
+    cancelMotion();
+    panel!.style.clipPath = '';
+    panel?.classList.remove('motion-active');
+    startGameLoop();
+    updateHud();
+    motionState = 'open';
   }
 
-  function closeGame() {
-    if (!isExpanded) return;
+  async function closeGame() {
+    if (motionState === 'closed' || motionState === 'closing') return;
+    const version = ++transitionVersion;
+
+    const computedClip = panel ? getComputedStyle(panel).clipPath : 'inset(0 0 0 0)';
+    panel!.style.clipPath = computedClip === 'none' ? 'inset(0 0 0 0)' : computedClip;
+    cancelMotion();
+    motionState = 'closing';
     isExpanded = false;
+    tabThumb.style.visibility = 'hidden';
+    heroChicken.style.display = 'none';
+    heroChicken.style.opacity = '0';
+    heroChicken.style.transform = 'none';
+    if (animId) {
+      cancelAnimationFrame(animId);
+      animId = 0;
+    }
+    panel?.classList.add('motion-active');
+    const duration = reduceMotion.matches ? 0 : 380;
+    await animateElement(panel, [
+      { clipPath: panel!.style.clipPath },
+      { clipPath: 'inset(0 0 0 100%)' }
+    ], { duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' });
+    if (version !== transitionVersion) return;
+
+    panel!.style.clipPath = 'inset(0 0 0 100%)';
+    cancelMotion();
+    gameContainer?.classList.remove('expanded');
+    panel?.classList.remove('expanded');
+    closePanel('game');
+    void panel?.offsetWidth;
+
     stopGame();
     ctx?.clearRect(0, 0, canvas.width, canvas.height);
-
-    const wrap = document.querySelector('.canvas-wrap');
-    tabThumb.style.width = '';
-    tabThumb.style.height = '';
-    tabThumb.style.opacity = '';
-    wrap?.classList.add('fade-out');
-
-    setTimeout(() => {
-      gameContainer?.classList.remove('expanded');
-      panel?.classList.remove('expanded');
-      document.body.classList.remove('panel-open');
-      wrap?.classList.remove('fade-out');
-    }, 150);
-
-    setTimeout(() => {
-      tabThumb.style.opacity = '0';
-      tabThumb.style.width = '0';
-      tabThumb.style.height = '0';
-      setTimeout(() => {
-        tabThumb.style.opacity = '';
-        tabThumb.style.width = '';
-        tabThumb.style.height = '';
-        heroChicken.style.display = 'none';
-      }, 350);
-    }, 150 + 500);
+    heroChicken.style.display = 'none';
+    heroChicken.style.opacity = '1';
+    heroChicken.style.transform = 'none';
+    tabThumb.style.visibility = 'visible';
+    panel!.style.clipPath = '';
+    panel?.classList.remove('motion-active');
+    motionState = 'closed';
   }
 
   tab?.addEventListener('click', openGame);
   closeTab?.addEventListener('click', closeGame);
 
   canvas?.addEventListener('click', (e) => {
-    if (cageActive || entering || !isExpanded) return;
+    if (cageActive || entering || motionState !== 'open') return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -647,6 +749,26 @@
   window.addEventListener('resize', () => {
     if (isExpanded && ctx) resizeCanvas();
   });
+
+  const canvasObserver = new ResizeObserver(() => {
+    if (isExpanded && ctx) resizeCanvas();
+  });
+  if (canvas?.parentElement) canvasObserver.observe(canvas.parentElement);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (animId) cancelAnimationFrame(animId);
+      animId = 0;
+    } else if (motionState === 'open' && ctx && sprite?.complete) {
+      startGameLoop();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeGame();
+  });
+
+  onPanelClose('game', closeGame);
 
   document.addEventListener('mousemove', (e) => {
     if (isExpanded) return;
@@ -686,13 +808,17 @@
     transition:
       width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
       top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-      border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity var(--duration-fast) ease;
     width: 60px;
     display: flex;
     flex-direction: row;
     align-items: center;
     padding: 20px 10px;
     gap: 10px;
+    border-top: 1px solid rgba(255, 105, 180, 0.3);
+    border-bottom: 1px solid rgba(255, 105, 180, 0.3);
+    color: inherit;
   }
 
   .game-tab.hover {
@@ -705,7 +831,7 @@
     object-fit: contain;
     border-radius: 8px;
     opacity: 0;
-    transition: all 0.3s ease;
+    transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
     flex-shrink: 0;
     background: rgba(255, 255, 255, 0.5);
   }
@@ -737,8 +863,8 @@
     right: 0;
     width: 100vw;
     height: 100vh;
-    background: var(--color-blue-95);
-    backdrop-filter: blur(20px);
+    height: 100dvh;
+    background: #a4d3eb;
     z-index: 300;
     display: flex;
     flex-direction: column;
@@ -746,7 +872,7 @@
     opacity: 0;
     pointer-events: none;
     transform: translateX(100%);
-    transition: all 0.4s ease;
+    transition: opacity var(--duration-medium) ease, transform var(--duration-medium) var(--ease-standard);
   }
 
   .game-panel.expanded {
@@ -767,6 +893,17 @@
     gap: 24px;
     margin-bottom: 18px;
     flex-shrink: 0;
+  }
+
+  .game-panel.motion-active {
+    transition: none;
+  }
+
+  .game-tab .tab-label {
+    display: none;
+    color: #20242b;
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .game-title {
@@ -914,7 +1051,7 @@
     position: fixed;
     left: 0;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translate(-12px, -50%);
     z-index: 400;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.3);
@@ -923,7 +1060,7 @@
     border-radius: 0 var(--radius-md) var(--radius-md) 0;
     border: 1px solid rgba(255, 105, 180, 0.3);
     border-left: none;
-    transition: all 0.3s ease;
+    transition: opacity 0.3s ease, transform var(--duration-medium) var(--ease-standard), padding var(--duration-fast) ease, background var(--duration-fast) ease;
     opacity: 0;
     pointer-events: none;
     display: flex;
@@ -933,6 +1070,7 @@
   .game-container.expanded .close-tab {
     opacity: 1;
     pointer-events: auto;
+    transform: translate(0, -50%);
   }
 
   .close-tab:hover {
@@ -1000,5 +1138,47 @@
     .combo-callout {
       font-size: 18px;
     }
+  }
+
+  @media (max-width: 767px) {
+    .game-tab {
+      top: auto;
+      right: calc(50% - 112px);
+      bottom: var(--safe-bottom);
+      width: 112px;
+      height: 56px;
+      padding: 8px 12px;
+      gap: 8px;
+      transform: none;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0 8px 8px 0;
+      background: rgba(205, 226, 238, 0.92);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .game-tab.hover {
+      width: 112px;
+    }
+
+    .game-tab .tab-thumb,
+    .game-tab.hover .tab-thumb {
+      width: 34px;
+      height: 34px;
+      opacity: 1;
+    }
+
+    .game-tab .tab-arrow {
+      display: none;
+    }
+
+    .game-tab .tab-label {
+      display: inline;
+    }
+
+    .game-panel {
+      padding: max(18px, var(--safe-top)) 14px max(14px, var(--safe-bottom));
+    }
+
   }
 </style>
