@@ -3,6 +3,10 @@
 
 <div id="map-container" class="map-container">
   <div id="map-chart" class="map-chart"></div>
+  <p class="map-disclaimer">
+    <span class="disclaimer-desktop">完整地图，可拖拽探索</span>
+    <span class="disclaimer-mobile">完整地图<br>切换至桌面端<br>可拖拽浏览</span>
+  </p>
 </div>
 
 <script>
@@ -93,7 +97,7 @@
     let isPhone = window.matchMedia('(max-width: 767px)').matches;
 
     const getViewportProfile = () => ({
-      center: isPhone ? [112.2, 31.5] : CENTER,
+      center: isPhone ? [112.2, 36] : CENTER,
       zoom: isPhone ? 11 : INIT_ZOOM,
       roam: isPhone ? false : 'move',
       symbolSize: isPhone ? 8 : 10,
@@ -257,12 +261,53 @@
     cursor: grabbing;
   }
 
-  @media (max-width: 767px) {
-    .map-chart {
-      pointer-events: none;
-      cursor: default;
-    }
+@media (max-width: 767px) {
+  .map-chart {
+    pointer-events: none;
+    cursor: default;
   }
+
+  .disclaimer-desktop {
+    display: none;
+  }
+}
+
+.map-disclaimer {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  z-index: 5;
+  font-size: 13px;
+  color: var(--color-blue-80);
+  opacity: 0.6;
+  letter-spacing: 0.6px;
+  user-select: none;
+  pointer-events: none;
+  line-height: 1.5;
+  text-align: right;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  max-width: 260px;
+}
+
+.disclaimer-mobile {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .map-disclaimer {
+    right: 10px;
+    bottom: max(12px, calc(var(--safe-bottom, 16px)));
+    font-size: 12px;
+    opacity: 0.5;
+    max-width: 130px;
+    text-align: right;
+  }
+
+  .disclaimer-mobile {
+    display: inline;
+  }
+}
 
 
 </style>

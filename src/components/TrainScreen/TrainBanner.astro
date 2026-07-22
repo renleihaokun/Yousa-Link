@@ -9,8 +9,11 @@ today.setHours(0, 0, 0, 0);
 const todayMs = today.getTime();
 
 const sorted = [...tours]
-  .map(t => {
-    const origDate = new Date(t.date);
+ .map(t => {
+    if (!t.date) {
+      return { ...t, dateObj: null, effectiveDate: new Date(9999, 0, 1), daysText: '待定', delayText: '', isPast: false };
+    }
+   const origDate = new Date(t.date);
     const effDate = new Date(origDate);
     effDate.setDate(effDate.getDate() + (t.delay ?? 0));
     const diffMs = effDate.getTime() - todayMs;
@@ -119,8 +122,8 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
                     <span
                       class="status-value"
                       data-tour-date={item.date}
-                      data-tour-delay={item.delay ?? 0}
-                    >{item.daysText}·{item.delayText}</span>
+                     data-tour-delay={item.delay ?? 0}
+                    >{item.daysText}{item.delayText ? `·${item.delayText}` : ''}</span>
                   </div>
                 </div>
               </>
@@ -134,7 +137,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
       <div class="footer-row">
         <a href="https://github.com/renleihaokun/Yousa-Link" target="_blank" rel="noopener">GitHub</a>
         <span>·</span>
-        <span class="footer-version">v0.1</span>
+        <span class="footer-version">v1.0</span>
         <span>·</span>
         <a href="https://blog.haokun.me" target="_blank" rel="noopener">blog.haokun.me</a>
       </div>
