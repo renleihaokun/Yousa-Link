@@ -1,21 +1,61 @@
 ---
 ---
 
-<div class="location-badge">
-  <span class="label">当前位于</span>
-  <span class="city" id="current-city">检测中...</span>
+<div class="location-badge" aria-live="polite" aria-atomic="true">
+  <p class="location-line">
+    <span class="label">当前位于</span>
+    <strong class="value city" id="current-city">检测中...</strong>
+  </p>
+  <p class="location-line">
+    <span class="label" id="distance-label">距下场巡演约</span>
+    <strong class="value distance" id="tour-distance">--Km</strong>
+  </p>
 </div>
 
 <script>
   import { getNetworkInfo } from '../scripts/network-info';
+  import {
+    findCity,
+    getDistanceKm,
+    getNextTour,
+    getTourCity,
+    isSameCity
+  } from '../scripts/tour-distance';
+
+  const cityElement = document.getElementById('current-city');
+  const distanceLabel = document.getElementById('distance-label');
+  const distanceElement = document.getElementById('tour-distance');
+
+  function setDistanceUnavailable() {
+    if (distanceLabel) distanceLabel.textContent = '距下场巡演';
+    if (distanceElement) distanceElement.textContent = '暂不可用';
+  }
 
   async function detectCity() {
     try {
       const data = await getNetworkInfo();
-      const city = data.location?.city || '未知';
-      document.getElementById('current-city')!.textContent = city;
+      const rawCity = data.location?.city;
+      const city = findCity(rawCity, data.location?.region);
+      if (cityElement) cityElement.textContent = city?.name || rawCity || '未知';
+
+      const nextTour = getNextTour();
+      const tourCity = nextTour ? getTourCity(nextTour) : undefined;
+      if (!city || !tourCity) {
+        setDistanceUnavailable();
+        return;
+      }
+
+      if (isSameCity(city, tourCity)) {
+        if (distanceLabel) distanceLabel.textContent = '距下场巡演';
+        if (distanceElement) distanceElement.textContent = '很近啦';
+        return;
+      }
+
+      if (distanceLabel) distanceLabel.textContent = '距下场巡演约';
+      if (distanceElement) distanceElement.textContent = `${getDistanceKm(city, tourCity)}Km`;
     } catch {
-      document.getElementById('current-city')!.textContent = '未知';
+      if (cityElement) cityElement.textContent = '未知';
+      setDistanceUnavailable();
     }
   }
 
@@ -27,48 +67,73 @@
     position: fixed;
     top: 24px;
     left: 24px;
-    padding: 18px 24px;
-    border-radius: 16px;
+    width: 250px;
+    padding: 16px 18px;
+    border-radius: 14px;
     z-index: 100;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    background: rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid var(--color-blue-80);
+    gap: 8px;
+    background: rgba(17, 19, 23, 0.82);
+    backdrop-filter: blur(20px) saturate(145%);
+    -webkit-backdrop-filter: blur(20px) saturate(145%);
+    border: 1px solid rgba(164, 211, 235, 0.72);
     box-shadow:
-      0 8px 32px rgba(155, 89, 182, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      0 10px 30px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .location-line {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    gap: 6px;
+    margin: 0;
+    white-space: nowrap;
   }
 
   .label {
+    flex-shrink: 0;
     font-size: 13px;
     color: var(--color-text-light);
-    letter-spacing: 2px;
+    line-height: 1.45;
   }
 
-  .city {
-    font-size: 20px;
-    font-weight: 600;
+  .value {
+    min-width: 0;
+    overflow: hidden;
     color: var(--color-text);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-overflow: ellipsis;
+  }
+
+  .distance {
+    color: var(--color-pink-light);
   }
 
   @media (max-width: 700px) {
     .location-badge {
       top: var(--safe-top);
       left: var(--safe-left);
-      padding: 12px 14px;
-      border-radius: 12px;
+      width: var(--location-hud-width);
+      min-height: 66px;
+      padding: 10px 8px;
+      border-radius: 10px;
+      gap: 4px;
     }
 
     .label {
-      font-size: 11px;
-      letter-spacing: 1px;
+      font-size: 10.5px;
     }
 
-    .city {
-      font-size: 16px;
+    .value {
+      font-size: 11px;
+    }
+
+    .location-line {
+      gap: 4px;
     }
   }
 </style>

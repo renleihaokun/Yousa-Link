@@ -7,14 +7,19 @@
     "build": "node scripts/generate-stickers.mjs && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "generate:stickers": "node scripts/generate-stickers.mjs"
+    "generate:stickers": "node scripts/generate-stickers.mjs",
+    "generate:cities": "node scripts/generate-cities.mjs"
   },
   "dependencies": {
     "astro": "^5.7.0",
-    "echarts": "^5.6.0"
+    "echarts": "^5.6.0",
+    "lucide-astro": "^0.556.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "pinyin-pro": "3.28.2",
+    "province-city-china": "8.5.8",
+    "typescript": "^5.7.0",
+    "world-cities-json": "1.0.1"
   }
 }

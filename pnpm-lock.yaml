@@ -14,13 +14,25 @@ importers:
       echarts:
         specifier: ^5.6.0
         version: 5.6.0
+      lucide-astro:
+        specifier: ^0.556.0
+        version: 0.556.0(astro@5.18.2(@types/node@22.20.0)(rollup@4.62.2)(typescript@5.9.3))
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.0
+      pinyin-pro:
+        specifier: 3.28.2
+        version: 3.28.2
+      province-city-china:
+        specifier: 8.5.8
+        version: 8.5.8
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      world-cities-json:
+        specifier: 1.0.1
+        version: 1.0.1
 
 packages:
 
@@ -535,6 +547,9 @@ packages:
 
   '@oslojs/encoding@1.1.0':
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
+
+  '@province-city-china/types@8.5.8':
+    resolution: {integrity: sha512-KZ3NyM8HsaBVcn5BRhWaOeZRhqEvm18PfB6HfRDuZfwwWhJLoTxB81mTENrBlONr2g8fy/fSbjsh44gvOj+/Lw==}
 
   '@rollup/pluginutils@5.4.0':
     resolution: {integrity: sha512-MfPp06CjRLfXQ3wY0R8vJDYBy/MvVcc9OulEfR0B8Iv9ko+GCNaRZ+EpJYFl27LhKsZK0o420sYCRHCjfCgeUg==}
@@ -1090,6 +1105,11 @@ packages:
     resolution: {integrity: sha512-RPimw/7aMdv2oqRrxKwvZXcPfwBrn/JZ2xYcY9Hus/6LaS3VOAKVWKWgNLCFSiOm1ESXinjsDlidVU7JlnCN2A==}
     engines: {node: 20 || >=22}
 
+  lucide-astro@0.556.0:
+    resolution: {integrity: sha512-ugMjPb45AMfkLCaduNSbyy5NQEKvB1TxVVMmUS4S6L807PMESnX0Qp+DIKHjbyjJmPXOyLRbrzvR3YikTK7brg==}
+    peerDependencies:
+      astro: '>=2.7.1'
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -1307,6 +1327,9 @@ packages:
     resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
     engines: {node: '>=12'}
 
+  pinyin-pro@3.28.2:
+    resolution: {integrity: sha512-jV38yxXHLfidirMC4hrXasLDozLCSq/4DfX88GnHcSEJ2+GpSedG6I9VOiEXJu6iQ5dbJC/RjmzyMuS5h/wH5A==}
+
   postcss@8.5.16:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
@@ -1321,6 +1344,9 @@ packages:
 
   property-information@7.2.0:
     resolution: {integrity: sha512-IAtzIB6sUiWaJYrX9smp3V46pBGbBeLFRGdh25kg1334VcBlD8HzhPeNIWQH9zhGmo2itIe25EHt9dQP7G5hmg==}
+
+  province-city-china@8.5.8:
+    resolution: {integrity: sha512-gUV5kSOWHVufemkq6lygb0ngNZ4snMcONmr3QzxHuj1MYOQPphiyjHplfmywcVGWdGQgim30RXia/mYB007eLg==}
 
   radix3@1.1.2:
     resolution: {integrity: sha512-b484I/7b8rDEdSDKckSSBA8knMpcdsXudlE/LNL639wFoHKwLbEkQFZHWEYwDC0wa0FKUcCY+GAF73Z7wxNVFA==}
@@ -1653,6 +1679,9 @@ packages:
   widest-line@5.0.0:
     resolution: {integrity: sha512-c9bZp7b5YtRj2wOe6dlj32MK+Bx/M/d+9VB2SHM1OtsUHR0aV0tdP6DWh/iMt0kWi1t5g1Iudu6hQRNd1A4PVA==}
     engines: {node: '>=18'}
+
+  world-cities-json@1.0.1:
+    resolution: {integrity: sha512-mUM3bCqAkYfUhIs/MSWbQblsqh9DAsBZgJEyy0JiASHtwbeeMuANFmgwClLUXUCStt+eYbNiB4EOeN4sIdL3pQ==}
 
   wrap-ansi@9.0.2:
     resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
@@ -2023,6 +2052,8 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@oslojs/encoding@1.1.0': {}
+
+  '@province-city-china/types@8.5.8': {}
 
   '@rollup/pluginutils@5.4.0(rollup@4.62.2)':
     dependencies:
@@ -2664,6 +2695,10 @@ snapshots:
 
   lru-cache@11.5.1: {}
 
+  lucide-astro@0.556.0(astro@5.18.2(@types/node@22.20.0)(rollup@4.62.2)(typescript@5.9.3)):
+    dependencies:
+      astro: 5.18.2(@types/node@22.20.0)(rollup@4.62.2)(typescript@5.9.3)
+
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -3063,6 +3098,8 @@ snapshots:
 
   picomatch@4.0.5: {}
 
+  pinyin-pro@3.28.2: {}
+
   postcss@8.5.16:
     dependencies:
       nanoid: 3.3.15
@@ -3077,6 +3114,10 @@ snapshots:
       sisteransi: 1.0.5
 
   property-information@7.2.0: {}
+
+  province-city-china@8.5.8:
+    dependencies:
+      '@province-city-china/types': 8.5.8
 
   radix3@1.1.2: {}
 
@@ -3445,6 +3486,8 @@ snapshots:
   widest-line@5.0.0:
     dependencies:
       string-width: 7.2.0
+
+  world-cities-json@1.0.1: {}
 
   wrap-ansi@9.0.2:
     dependencies:

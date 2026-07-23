@@ -2,6 +2,7 @@ export type NetworkInfo = {
   ip?: string;
   location?: {
     city?: string;
+    region?: string;
   };
 };
 

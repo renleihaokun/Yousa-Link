@@ -53,6 +53,8 @@
   --safe-bottom: max(16px, env(safe-area-inset-bottom));
   --safe-left: max(16px, env(safe-area-inset-left));
   --page-gutter: clamp(16px, 3vw, 48px);
+  --location-hud-width: clamp(124px, 38vw, 156px);
+  --top-hud-gap: 8px;
 
   --font-main: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-pixel: 'Press Start 2P', monospace;
