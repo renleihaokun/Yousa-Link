@@ -19,6 +19,7 @@
 
   // 主题蓝色值
   const THEME_BLUE = '#a4d3eb';
+  const MAP_NAME = 'tour-region';
 
   const cities = [
     { name: '成都', value: [104.0668, 30.5728] },
@@ -69,7 +70,7 @@
       type: 'FeatureCollection' as const,
       features: [...neighborFeatures, ...chinaGeo.features]
     };
-    echarts.registerMap('world', merged);
+    echarts.registerMap(MAP_NAME, merged);
 
     const regionStyles = merged.features.map((f: any, i: number) => {
       const isNeighbor = i < neighborFeatures.length;
@@ -109,7 +110,7 @@
     mainChart.setOption({
       backgroundColor: 'transparent',
       geo: {
-        map: 'world',
+        map: MAP_NAME,
         roam: profile.roam,
         zoom: profile.zoom,
         center: profile.center,

@@ -4,9 +4,11 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "node scripts/generate-stickers.mjs && astro dev",
-    "build": "node scripts/generate-stickers.mjs && astro build",
+    "build": "pnpm check:map && node scripts/generate-stickers.mjs && astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "generate:map": "node scripts/generate-map-data.mjs --write",
+    "check:map": "node scripts/generate-map-data.mjs --check",
     "generate:stickers": "node scripts/generate-stickers.mjs",
     "generate:cities": "node scripts/generate-cities.mjs"
   },
@@ -18,6 +20,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "pinyin-pro": "3.28.2",
+    "polygon-clipping": "^0.15.7",
     "province-city-china": "8.5.8",
     "typescript": "^5.7.0",
     "world-cities-json": "1.0.1"
