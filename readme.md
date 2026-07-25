@@ -11,7 +11,7 @@
 
 ## 贡献
 
-设计：[renleihaokun](https://github.com/renleihaokun)
+设计：[renleihaokun](https://github.com/renleihaokun)  
 实现：[Xiaomi MIMO](https://mimo.mi.com/)、[deepseek](https://www.deepseek.com/)、[Codex](https://openai.com/zh-Hans-CN/codex/)
 
 ## 欢迎鸟蛋提交PR  
