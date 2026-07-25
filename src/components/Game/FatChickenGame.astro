@@ -57,6 +57,8 @@
   } from '../../scripts/scene-blur-controller';
 
   const spriteSrc = '/images/game/yousa-chicken.png';
+  const easterEggSpriteSrc = '/images/game/yousa-WTF.png';
+  const EASTER_EGG_CHANCE = 0.05;
   const CHICKEN_HEIGHT = 64;
   const DEFAULT_CHICKEN_RATIO = 500 / 380;
   const ALPHA_HIT_THRESHOLD = 32;
@@ -86,7 +88,6 @@
   let bestReaction = Math.max(0, Number.parseInt(localStorage.getItem('yousa-catch-best-reaction') || '0', 10) || 0);
   let animId = 0;
   let sprite: HTMLImageElement;
-  let spriteReady: Promise<void> | null = null;
   let ctx: CanvasRenderingContext2D;
   let lastFrameTime = 0;
   let targetLiveSince = 0;
@@ -94,6 +95,20 @@
   let spritePixels: Uint8ClampedArray | null = null;
   let spritePixelWidth = 0;
   let spritePixelHeight = 0;
+
+  type SpriteMask = {
+    pixels: Uint8ClampedArray | null;
+    width: number;
+    height: number;
+  };
+
+  type SpriteVariant = {
+    image: HTMLImageElement;
+    mask: SpriteMask;
+    ready: Promise<void>;
+  };
+
+  const spriteVariants = new Map<string, SpriteVariant>();
 
   // Chicken state
   let chicken = {
@@ -236,6 +251,7 @@
   }
 
   function startEntry() {
+    activateSprite(pickSpriteSrc());
     const { width, height } = getCanvasSize();
     const maxX = Math.max(0, width - chicken.width);
     const maxY = Math.max(0, height - chicken.height);
@@ -266,27 +282,58 @@
     enterStartTime = performance.now();
   }
 
-  function ensureSprite() {
-    if (spriteReady) return spriteReady;
-    spriteReady = new Promise<void>((resolve) => {
-      sprite = new Image();
-      sprite.src = spriteSrc;
-      sprite.onload = () => {
-        const targetHeight = window.matchMedia('(max-width: 767px)').matches ? 78 : CHICKEN_HEIGHT;
-        chicken.width = targetHeight * (sprite.naturalWidth / sprite.naturalHeight);
-        chicken.height = targetHeight;
-        prepareSpritePixels();
-        resolve();
-      };
-      sprite.onerror = () => resolve();
-    });
-    return spriteReady;
+  function pickSpriteSrc() {
+    return Math.random() < EASTER_EGG_CHANCE ? easterEggSpriteSrc : spriteSrc;
   }
 
-  async function prepareCanvasForLanding() {
+  function loadSprite(src: string) {
+    const existing = spriteVariants.get(src);
+    if (existing) return existing;
+
+    const image = new Image();
+    const variant: SpriteVariant = {
+      image,
+      mask: { pixels: null, width: 0, height: 0 },
+      ready: Promise.resolve()
+    };
+    variant.ready = new Promise<void>((resolve) => {
+      image.onload = () => {
+        variant.mask = prepareSpritePixels(image);
+        resolve();
+      };
+      image.onerror = () => resolve();
+      image.src = src;
+    });
+    spriteVariants.set(src, variant);
+    return variant;
+  }
+
+  function activateSprite(src: string) {
+    const preferred = spriteVariants.get(src);
+    const fallback = spriteVariants.get(spriteSrc);
+    const variant = preferred?.image.naturalWidth && preferred.image.naturalHeight
+      ? preferred
+      : fallback ?? preferred;
+    if (!variant) return;
+
+    sprite = variant.image;
+    spritePixels = variant.mask.pixels;
+    spritePixelWidth = variant.mask.width;
+    spritePixelHeight = variant.mask.height;
+
+    if (sprite.naturalWidth > 0 && sprite.naturalHeight > 0) {
+      const targetHeight = window.matchMedia('(max-width: 767px)').matches ? 78 : CHICKEN_HEIGHT;
+      chicken.width = targetHeight * (sprite.naturalWidth / sprite.naturalHeight);
+      chicken.height = targetHeight;
+    }
+  }
+
+  async function prepareCanvasForLanding(initialSpriteSrc: string) {
     ctx = canvas.getContext('2d')!;
     resizeCanvas();
-    await ensureSprite();
+    const variants = [loadSprite(spriteSrc), loadSprite(easterEggSpriteSrc)];
+    await Promise.all(variants.map((variant) => variant.ready));
+    activateSprite(initialSpriteSrc);
     const { width, height } = getCanvasSize();
     chicken.x = Math.max(0, Math.min(width - chicken.width, width * 0.62 - chicken.width / 2));
     chicken.y = Math.max(0, Math.min(height - chicken.height, height * 0.42 - chicken.height / 2));
@@ -309,22 +356,22 @@
     );
   }
 
-  function prepareSpritePixels() {
+  function prepareSpritePixels(source: HTMLImageElement): SpriteMask {
     const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = sprite.naturalWidth;
-    maskCanvas.height = sprite.naturalHeight;
+    maskCanvas.width = source.naturalWidth;
+    maskCanvas.height = source.naturalHeight;
     const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
-    if (!maskCtx) return;
+    if (!maskCtx) return { pixels: null, width: 0, height: 0 };
 
     try {
-      maskCtx.drawImage(sprite, 0, 0);
-      spritePixels = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
-      spritePixelWidth = maskCanvas.width;
-      spritePixelHeight = maskCanvas.height;
+      maskCtx.drawImage(source, 0, 0);
+      return {
+        pixels: maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data,
+        width: maskCanvas.width,
+        height: maskCanvas.height
+      };
     } catch {
-      spritePixels = null;
-      spritePixelWidth = 0;
-      spritePixelHeight = 0;
+      return { pixels: null, width: 0, height: 0 };
     }
   }
 
@@ -650,7 +697,8 @@
     updateHud();
 
     entryRect = tabThumb.getBoundingClientRect();
-    heroChicken.src = spriteSrc;
+    const initialSpriteSrc = pickSpriteSrc();
+    heroChicken.src = initialSpriteSrc;
     placeHero(entryRect);
     tabThumb.style.visibility = 'hidden';
     panel!.style.clipPath = reduceMotion.matches ? 'inset(0)' : 'inset(0 0 0 100%)';
@@ -662,9 +710,10 @@
 
     await nextFrame();
     await nextFrame();
-    const landingRect = await prepareCanvasForLanding();
+    const landingRect = await prepareCanvasForLanding(initialSpriteSrc);
     if (version !== transitionVersion || !entryRect) return;
 
+    heroChicken.src = sprite.src;
     placeHero(landingRect);
     const duration = reduceMotion.matches ? 0 : 750;
     await Promise.all([
