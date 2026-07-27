@@ -11,33 +11,36 @@
   <img class="hero-chicken" id="hero-chicken" src="/images/game/yousa-chicken.png" alt="" />
 
   <div class="game-panel" id="game-panel">
-    <div class="game-header">
-      <div class="game-title">
-        <h2>抓肥鸡</h2>
-        <span class="game-status" id="game-status">追捕中</span>
+    <div class="game-backdrop" id="game-backdrop" aria-hidden="true"></div>
+    <div class="game-content" id="game-content">
+      <div class="game-header">
+        <div class="game-title">
+          <h2>抓肥鸡</h2>
+          <span class="game-status" id="game-status">追捕中</span>
+        </div>
+        <div class="game-stats" aria-label="游戏统计">
+          <div class="game-stat">
+            <span>得分</span>
+            <b id="game-score">0000</b>
+          </div>
+          <div class="game-stat">
+            <span>连抓</span>
+            <b id="game-streak">0</b>
+          </div>
+          <div class="game-stat">
+            <span>最快</span>
+            <b id="best-reaction">--</b>
+          </div>
+          <div class="game-stat catch-counter">
+            <span>累计捕获</span>
+            <b id="catch-count">0</b>
+          </div>
+        </div>
       </div>
-      <div class="game-stats" aria-label="游戏统计">
-        <div class="game-stat">
-          <span>得分</span>
-          <b id="game-score">0000</b>
-        </div>
-        <div class="game-stat">
-          <span>连抓</span>
-          <b id="game-streak">0</b>
-        </div>
-        <div class="game-stat">
-          <span>最快</span>
-          <b id="best-reaction">--</b>
-        </div>
-        <div class="game-stat catch-counter">
-          <span>累计捕获</span>
-          <b id="catch-count">0</b>
-        </div>
+      <div class="canvas-wrap">
+        <canvas id="game-canvas"></canvas>
+        <div class="combo-callout" id="combo-callout" aria-live="polite"></div>
       </div>
-    </div>
-    <div class="canvas-wrap">
-      <canvas id="game-canvas"></canvas>
-      <div class="combo-callout" id="combo-callout" aria-live="polite"></div>
     </div>
   </div>
 
@@ -67,6 +70,8 @@
   const tabThumb = document.getElementById('tab-thumb') ;
   const heroChicken = document.getElementById('hero-chicken') ;
   const panel = document.getElementById('game-panel');
+  const backdrop = document.getElementById('game-backdrop');
+  const content = document.getElementById('game-content');
   const closeTab = document.getElementById('close-tab');
   const canvas = document.getElementById('game-canvas') ;
   const catchCount = document.getElementById('catch-count');
@@ -691,17 +696,24 @@
       transform: 'none',
       visibility: 'visible'
     });
-    panel!.style.clipPath = reduceMotion.matches ? 'inset(0)' : 'inset(0 0 0 100%)';
+    Object.assign(backdrop!.style, {
+      transform: 'none',
+      borderRadius: '0'
+    });
+    Object.assign(content!.style, {
+      opacity: '0',
+      transform: 'translate3d(0, 12px, 0)'
+    });
     score = 0;
     streak = 0;
     updateHud();
 
+    const surfaceEntryRect = tab.getBoundingClientRect();
     entryRect = tabThumb.getBoundingClientRect();
     const initialSpriteSrc = pickSpriteSrc();
     heroChicken.src = initialSpriteSrc;
     placeHero(entryRect);
     tabThumb.style.visibility = 'hidden';
-    panel!.style.clipPath = reduceMotion.matches ? 'inset(0)' : 'inset(0 0 0 100%)';
     panel?.classList.add('motion-active', 'expanded');
     gameContainer?.classList.add('expanded');
     isExpanded = true;
@@ -716,11 +728,25 @@
     heroChicken.src = sprite.src;
     placeHero(landingRect);
     const duration = reduceMotion.matches ? 0 : 750;
+    const surfaceTargetRect = backdrop?.getBoundingClientRect();
+    const surfaceStartTransform = surfaceTargetRect
+      ? heroTransform(surfaceEntryRect, surfaceTargetRect)
+      : 'scale(0)';
+    const originRadius = getComputedStyle(tab).borderRadius;
     await Promise.all([
-      animateElement(panel, [
-        { clipPath: 'inset(0 0 0 100%)' },
-        { clipPath: 'inset(0 0 0 0)' }
+      animateElement(backdrop, [
+        { transform: surfaceStartTransform, borderRadius: originRadius },
+        { transform: 'none', borderRadius: '0px' }
       ], { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }),
+      animateElement(content, [
+        { opacity: 0, transform: 'translate3d(0, 12px, 0)' },
+        { opacity: 1, transform: 'translate3d(0, 0, 0)' }
+      ], {
+        duration: reduceMotion.matches ? 0 : 300,
+        delay: reduceMotion.matches ? 0 : 450,
+        easing: 'ease',
+        fill: 'forwards'
+      }),
       animateElement(heroChicken, [
         { transform: heroTransform(entryRect, landingRect), borderRadius: '8px' },
         { transform: `translate3d(${(entryRect.left - landingRect.left) * 0.18}px, ${(entryRect.top - landingRect.top) * 0.18 - 18}px, 0) scale(1.08) rotate(-3deg)`, borderRadius: '10px', offset: 0.72 },
@@ -730,13 +756,15 @@
     ]);
     if (version !== transitionVersion) return;
 
-    panel!.style.clipPath = 'inset(0 0 0 0)';
+    backdrop!.style.transform = 'none';
+    backdrop!.style.borderRadius = '0';
+    content!.style.opacity = '1';
+    content!.style.transform = 'none';
     heroChicken.style.transform = 'none';
     heroChicken.style.opacity = '1';
     render();
     heroChicken.style.display = 'none';
     cancelMotion();
-    panel!.style.clipPath = '';
     panel?.classList.remove('motion-active');
     startGameLoop();
     updateHud();
@@ -747,8 +775,16 @@
     if (motionState === 'closed' || motionState === 'closing') return;
     const version = ++transitionVersion;
 
-    const computedClip = panel ? getComputedStyle(panel).clipPath : 'inset(0 0 0 0)';
-    panel!.style.clipPath = computedClip === 'none' ? 'inset(0 0 0 0)' : computedClip;
+    const backdropStyle = backdrop ? getComputedStyle(backdrop) : null;
+    const contentStyle = content ? getComputedStyle(content) : null;
+    if (backdrop && backdropStyle) {
+      backdrop.style.transform = backdropStyle.transform === 'none' ? 'none' : backdropStyle.transform;
+      backdrop.style.borderRadius = backdropStyle.borderRadius;
+    }
+    if (content && contentStyle) {
+      content.style.opacity = contentStyle.opacity;
+      content.style.transform = contentStyle.transform === 'none' ? 'none' : contentStyle.transform;
+    }
     cancelMotion();
     motionState = 'closing';
     isExpanded = false;
@@ -762,16 +798,29 @@
     }
     panel?.classList.add('motion-active');
     const duration = reduceMotion.matches ? 0 : 380;
+    const surfaceTargetRect = backdrop?.getBoundingClientRect();
+    const surfaceOriginRect = tab?.getBoundingClientRect();
+    const closeTransform = surfaceOriginRect && surfaceTargetRect
+      ? heroTransform(surfaceOriginRect, surfaceTargetRect)
+      : 'scale(0)';
+    const originRadius = tab ? getComputedStyle(tab).borderRadius : '8px';
     await Promise.all([
-      animateElement(panel, [
-        { clipPath: panel!.style.clipPath },
-        { clipPath: 'inset(0 0 0 100%)' }
+      animateElement(content, [
+        { opacity: content!.style.opacity || '1', transform: content!.style.transform || 'none' },
+        { opacity: 0, transform: 'translate3d(0, 8px, 0)' }
+      ], { duration: Math.min(duration, 220), easing: 'ease', fill: 'forwards' }),
+      animateElement(backdrop, [
+        { transform: backdrop!.style.transform || 'none', borderRadius: backdrop!.style.borderRadius || '0px' },
+        { transform: closeTransform, borderRadius: originRadius }
       ], { duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' }),
       animateSceneBlur('game', 0, duration)
     ]);
     if (version !== transitionVersion) return;
 
-    panel!.style.clipPath = 'inset(0 0 0 100%)';
+    backdrop!.style.transform = closeTransform;
+    backdrop!.style.borderRadius = originRadius;
+    content!.style.opacity = '0';
+    content!.style.transform = 'translate3d(0, 8px, 0)';
     cancelMotion();
     gameContainer?.classList.remove('expanded');
     panel?.classList.remove('expanded');
@@ -785,7 +834,10 @@
     heroChicken.style.opacity = '1';
     heroChicken.style.transform = 'none';
     tabThumb.style.visibility = 'visible';
-    panel!.style.clipPath = '';
+    backdrop!.style.transform = 'none';
+    backdrop!.style.borderRadius = '0';
+    content!.style.opacity = '';
+    content!.style.transform = '';
     panel?.classList.remove('motion-active');
     motionState = 'closed';
   }
@@ -834,7 +886,7 @@
   document.addEventListener('astro:before-swap', () => clearSceneBlur('game'), { once: true });
 
   document.addEventListener('mousemove', (e) => {
-    if (isExpanded) return;
+    if (motionState !== 'closed') return;
     const isNear = e.clientX > window.innerWidth * 0.7;
     tab?.classList.toggle('hover', isNear);
   });
@@ -927,21 +979,39 @@
     width: 100vw;
     height: 100vh;
     height: 100dvh;
-    background: #a4d3eb;
     z-index: 300;
-    display: flex;
-    flex-direction: column;
     padding: 40px;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    transform: translateX(100%);
-    transition: opacity var(--duration-medium) ease, transform var(--duration-medium) var(--ease-standard);
   }
 
   .game-panel.expanded {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
-    transform: translateX(0);
+  }
+
+  .game-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: #a4d3eb;
+    transform-origin: top left;
+    pointer-events: none;
+    will-change: transform, border-radius;
+  }
+
+  .game-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    opacity: 0;
+    will-change: opacity, transform;
   }
 
   .game-container.expanded .game-tab {

@@ -97,7 +97,7 @@ body[data-open-panel='gallery'] .game-tab {
 
 @media (max-width: 767px) {
   body.panel-open .gallery-container:not(.expanded),
-  body.panel-open .game-tab {
+  body.panel-open .game-container:not(.expanded) .game-tab {
     opacity: 0;
     pointer-events: none;
     transform: translateY(12px);
