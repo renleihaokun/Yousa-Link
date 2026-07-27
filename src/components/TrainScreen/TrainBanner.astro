@@ -163,9 +163,94 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   if (!stack) throw new Error('card-stack not found');
 
-  let reboundTimer: number | undefined;
+  const TOP_TOLERANCE = 2;
+  const SCROLL_END_TOLERANCE = 2;
+  const WHEEL_TRIGGER_DISTANCE = 40;
+  const WHEEL_RESET_DELAY = 400;
+  const TOUCH_TRIGGER_DISTANCE = 48;
+  const TOUCH_CAPTURE_DISTANCE = 8;
+  const GESTURE_LOCK_DURATION = 760;
 
+  let reboundTimer: number | undefined;
   let stateTimer: number | undefined;
+  let gestureLockedUntil = 0;
+  let wheelDistance = 0;
+  let wheelDirection = 0;
+  let wheelResetTimer: number | undefined;
+  let wheelGestureActive = false;
+  let wheelGestureStartedAtTop = false;
+  let wheelGestureStartedAtScrollEnd = false;
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartedAtScrollEnd = false;
+  let touchMode: 'open' | 'close' | null = null;
+
+  function lockGestures() {
+    gestureLockedUntil = performance.now() + GESTURE_LOCK_DURATION;
+  }
+
+  function gesturesLocked() {
+    return performance.now() < gestureLockedUntil;
+  }
+
+  function isPageAtTop() {
+    const viewportTop = window.visualViewport?.pageTop ?? window.scrollY;
+    return viewportTop <= TOP_TOLERANCE;
+  }
+
+  function isStackAtScrollEnd() {
+    return stack.scrollHeight - stack.clientHeight - stack.scrollTop <= SCROLL_END_TOLERANCE;
+  }
+
+  function hasConflictingPanel() {
+    const openPanelId = document.body.dataset.openPanel;
+    return Boolean(openPanelId && openPanelId !== 'train');
+  }
+
+  function isInteractiveTarget(target: EventTarget | null) {
+    return target instanceof Element && Boolean(target.closest(
+      'a, button, input, select, textarea, [contenteditable="true"]'
+    ));
+  }
+
+  function resetWheelGesture() {
+    window.clearTimeout(wheelResetTimer);
+    wheelResetTimer = undefined;
+    wheelDistance = 0;
+    wheelDirection = 0;
+    wheelGestureActive = false;
+    wheelGestureStartedAtTop = false;
+    wheelGestureStartedAtScrollEnd = false;
+  }
+
+  function accumulateWheelDistance(deltaY: number) {
+    const direction = Math.sign(deltaY);
+    if (!direction) return wheelDistance;
+
+    if (!wheelGestureActive) {
+      // Only a fresh gesture that begins at a boundary may open or close the screen.
+      // This keeps the inertial tail of timeline/list scrolling from triggering it.
+      wheelGestureActive = true;
+      wheelGestureStartedAtTop = isPageAtTop();
+      wheelGestureStartedAtScrollEnd = stack.classList.contains('expanded') && isStackAtScrollEnd();
+    }
+
+    if (wheelDirection !== direction) {
+      wheelDistance = 0;
+      wheelDirection = direction;
+    }
+
+    wheelDistance += deltaY;
+    window.clearTimeout(wheelResetTimer);
+    wheelResetTimer = window.setTimeout(resetWheelGesture, WHEEL_RESET_DELAY);
+    return wheelDistance;
+  }
+
+  function normalizeWheelDelta(event: WheelEvent) {
+    if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 16;
+    if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) return event.deltaY * window.innerHeight;
+    return event.deltaY;
+  }
 
   function playRebound(type: 'expand' | 'collapse') {
     window.clearTimeout(reboundTimer);
@@ -187,6 +272,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   function expand() {
     if (stack.classList.contains('expanded')) return;
     stack.classList.add('expanded');
+    lockGestures();
     playRebound('expand');
     footer?.classList.add('visible');
     openPanel('train');
@@ -195,9 +281,136 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   function collapse() {
     if (!stack.classList.contains('expanded')) return;
     stack.classList.remove('expanded');
+    lockGestures();
     playRebound('collapse');
     footer?.classList.remove('visible');
     closePanel('train');
+  }
+
+  function handleWheel(event: WheelEvent) {
+    if (gesturesLocked()) return;
+
+    const deltaY = normalizeWheelDelta(event);
+    if (!deltaY) return;
+    const accumulatedDistance = accumulateWheelDistance(deltaY);
+
+    if (stack.classList.contains('expanded')) {
+      const targetIsInsideStack = event.target instanceof Node && stack.contains(event.target);
+
+      if (deltaY > 0 && !isStackAtScrollEnd()) {
+        if (!targetIsInsideStack) {
+          event.preventDefault();
+          stack.scrollTop += deltaY;
+        }
+        return;
+      }
+
+      if (deltaY < 0 && stack.scrollTop > SCROLL_END_TOLERANCE) {
+        if (!targetIsInsideStack) {
+          event.preventDefault();
+          stack.scrollTop += deltaY;
+        }
+        return;
+      }
+
+      if (deltaY < 0) {
+        return;
+      }
+
+      if (wheelGestureStartedAtScrollEnd && accumulatedDistance >= WHEEL_TRIGGER_DISTANCE) {
+        event.preventDefault();
+        resetWheelGesture();
+        collapse();
+      }
+      return;
+    }
+
+    if (deltaY > 0 || !isPageAtTop() || hasConflictingPanel() || isInteractiveTarget(event.target)) {
+      return;
+    }
+
+    if (wheelGestureStartedAtTop && accumulatedDistance <= -WHEEL_TRIGGER_DISTANCE) {
+      event.preventDefault();
+      resetWheelGesture();
+      expand();
+    }
+  }
+
+  function handleTouchStart(event: TouchEvent) {
+    touchMode = null;
+    if (gesturesLocked() || event.touches.length !== 1 || isInteractiveTarget(event.target)) return;
+
+    const touch = event.touches[0];
+    if (!touch) return;
+
+    if (stack.classList.contains('expanded')) {
+      if (!(event.target instanceof Node) || !stack.contains(event.target)) return;
+      touchMode = 'close';
+      touchStartedAtScrollEnd = isStackAtScrollEnd();
+    } else {
+      if (!isPageAtTop() || hasConflictingPanel()) return;
+      touchMode = 'open';
+      touchStartedAtScrollEnd = false;
+    }
+
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+  }
+
+  function handleTouchMove(event: TouchEvent) {
+    if (!touchMode || event.touches.length !== 1) return;
+
+    const touch = event.touches[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    const isVertical = Math.abs(deltaY) > Math.abs(deltaX);
+    if (!isVertical || Math.abs(deltaY) < TOUCH_CAPTURE_DISTANCE) return;
+
+    const isOpeningGesture = touchMode === 'open' && deltaY > 0;
+    const isClosingGesture = touchMode === 'close' && touchStartedAtScrollEnd && deltaY < 0;
+    if (isOpeningGesture || isClosingGesture) event.preventDefault();
+  }
+
+  function handleTouchEnd(event: TouchEvent) {
+    if (!touchMode || event.changedTouches.length !== 1) {
+      touchMode = null;
+      return;
+    }
+
+    const mode = touchMode;
+    const startedAtScrollEnd = touchStartedAtScrollEnd;
+    const touch = event.changedTouches[0];
+    touchMode = null;
+    touchStartedAtScrollEnd = false;
+    if (!touch || gesturesLocked()) return;
+
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    if (Math.abs(deltaY) <= Math.abs(deltaX) || Math.abs(deltaY) < TOUCH_TRIGGER_DISTANCE) return;
+
+    const shouldOpen = mode === 'open'
+      && deltaY > 0
+      && !stack.classList.contains('expanded')
+      && isPageAtTop()
+      && !hasConflictingPanel();
+    const shouldClose = mode === 'close'
+      && deltaY < 0
+      && startedAtScrollEnd
+      && stack.classList.contains('expanded');
+
+    if (!shouldOpen && !shouldClose) return;
+
+    event.preventDefault();
+    resetWheelGesture();
+    if (shouldOpen) expand();
+    else collapse();
+  }
+
+  function resetTouchGesture() {
+    touchMode = null;
+    touchStartedAtScrollEnd = false;
   }
 
   const obs = new MutationObserver(() => {
@@ -226,6 +439,12 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') collapse();
   });
+
+  window.addEventListener('wheel', handleWheel, { passive: false });
+  document.addEventListener('touchstart', handleTouchStart, { passive: true });
+  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+  document.addEventListener('touchend', handleTouchEnd, { passive: false });
+  document.addEventListener('touchcancel', resetTouchGesture, { passive: true });
 
   onPanelClose('train', collapse);
 
