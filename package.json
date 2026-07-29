@@ -3,14 +3,20 @@
   "type": "module",
   "version": "1.0.0",
   "scripts": {
-    "dev": "node scripts/generate-stickers.mjs && astro dev",
-    "build": "pnpm check:map && node scripts/generate-stickers.mjs && astro build",
+    "dev": "pnpm generate:assets && astro dev",
+    "build": "pnpm clean && pnpm check:map && pnpm generate:assets && astro build && pnpm check:budget",
     "preview": "astro preview",
     "astro": "astro",
+    "clean": "node scripts/clean-dist.mjs",
+    "generate:assets": "node scripts/generate-stickers.mjs",
+    "generate:fonts": "node scripts/generate-fonts.mjs",
     "generate:map": "node scripts/generate-map-data.mjs --write",
     "check:map": "node scripts/generate-map-data.mjs --check",
     "generate:stickers": "node scripts/generate-stickers.mjs",
-    "generate:cities": "node scripts/generate-cities.mjs"
+    "generate:cities": "node scripts/generate-cities.mjs",
+    "check:budget": "node scripts/check-performance-budget.mjs",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "astro": "^5.7.0",
@@ -18,11 +24,15 @@
     "lucide-astro": "^0.556.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@types/node": "^22.0.0",
+    "happy-dom": "^20.11.1",
     "pinyin-pro": "3.28.2",
     "polygon-clipping": "^0.15.7",
     "province-city-china": "8.5.8",
+    "sharp": "^0.35.3",
     "typescript": "^5.7.0",
+    "vitest": "^4.1.10",
     "world-cities-json": "1.0.1"
   }
 }

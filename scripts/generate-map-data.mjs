@@ -7,6 +7,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE_PATH = path.join(ROOT, 'scripts', 'map-data', 'neighbors-natural-earth.source.geo.json');
 const CHINA_PATH = path.join(ROOT, 'public', 'china.geo.json');
 const OUTPUT_PATH = path.join(ROOT, 'public', 'neighbors.geo.json');
+const MERGED_OUTPUT_PATH = path.join(ROOT, 'public', 'tour-map.geo.json');
 const EXPECTED_FEATURE_COUNT = 21;
 const AREA_EPSILON = 1e-12;
 
@@ -164,7 +165,28 @@ async function generate() {
 
   const output = { type: 'FeatureCollection', features };
   validateFeatureCollection(output, 'generated neighbors', EXPECTED_FEATURE_COUNT);
-  return `${JSON.stringify(output)}\n`;
+  const merged = {
+    type: 'FeatureCollection',
+    features: [
+      ...features.filter((feature) => feature.properties.name !== 'China'),
+      ...china.features
+    ]
+  };
+  return {
+    neighbors: `${JSON.stringify(output)}\n`,
+    merged: `${JSON.stringify(merged)}\n`
+  };
+}
+
+async function checkGeneratedFile(filePath, expected, label) {
+  let current;
+  try {
+    current = await readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') fail(`${label} is missing; run pnpm generate:map`);
+    throw error;
+  }
+  if (current !== expected) fail(`${label} is stale; run pnpm generate:map`);
 }
 
 async function main() {
@@ -175,24 +197,19 @@ async function main() {
 
   const generated = await generate();
   if (mode === '--write') {
-    await writeFile(OUTPUT_PATH, generated, 'utf8');
-    console.log(`Generated ${path.relative(ROOT, OUTPUT_PATH)} with ${EXPECTED_FEATURE_COUNT} countries.`);
+    await Promise.all([
+      writeFile(OUTPUT_PATH, generated.neighbors, 'utf8'),
+      writeFile(MERGED_OUTPUT_PATH, generated.merged, 'utf8')
+    ]);
+    console.log(`Generated ${path.relative(ROOT, OUTPUT_PATH)} and ${path.relative(ROOT, MERGED_OUTPUT_PATH)}.`);
     return;
   }
 
-  let current;
-  try {
-    current = await readFile(OUTPUT_PATH, 'utf8');
-  } catch (error) {
-    if (error?.code === 'ENOENT') {
-      fail('public/neighbors.geo.json is missing; run pnpm generate:map');
-    }
-    throw error;
-  }
-  if (current !== generated) {
-    fail('public/neighbors.geo.json is stale; run pnpm generate:map');
-  }
-  console.log('Map data check passed: 21 countries, no positive-area overlap with China.');
+  await Promise.all([
+    checkGeneratedFile(OUTPUT_PATH, generated.neighbors, 'public/neighbors.geo.json'),
+    checkGeneratedFile(MERGED_OUTPUT_PATH, generated.merged, 'public/tour-map.geo.json')
+  ]);
+  console.log('Map data check passed: generated layers are current and non-overlapping.');
 }
 
 main().catch((error) => {

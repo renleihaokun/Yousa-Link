@@ -1,30 +1,10 @@
 ---
-import toursData from '../../data/tours.json';
+import { getTourSchedule } from '../../domain/tours';
 
-const { tours } = toursData;
-
-const MS_PER_DAY = 86400000;
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 const todayMs = today.getTime();
-
-const sorted = [...tours]
- .map(t => {
-    if (!t.date) {
-      return { ...t, dateObj: null, effectiveDate: new Date(9999, 0, 1), daysText: '待定', delayText: '', isPast: false };
-    }
-   const origDate = new Date(t.date);
-    const effDate = new Date(origDate);
-    effDate.setDate(effDate.getDate() + (t.delay ?? 0));
-    const diffMs = effDate.getTime() - todayMs;
-    const diffDays = Math.round(diffMs / MS_PER_DAY);
-    const daysText = diffDays > 0 ? `${diffDays}天后` : diffDays < 0 ? `${Math.abs(diffDays)}天前` : '今天';
-    const d = t.delay ?? 0;
-    const delayText = d > 0 ? `晚点${d}天` : d < 0 ? `提前${Math.abs(d)}天` : '正点';
-    const isPast = diffDays < 0;
-    return { ...t, dateObj: origDate, effectiveDate: effDate, daysText, delayText, isPast };
-  })
-  .sort((a, b) => a.effectiveDate - b.effectiveDate);
+const sorted = getTourSchedule(today);
 
 const upcomingIdx = sorted.findIndex(t => t.effectiveDate.getTime() >= todayMs);
 const noUpcoming = upcomingIdx === -1;
@@ -184,6 +164,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   let touchStartY = 0;
   let touchStartedAtScrollEnd = false;
   let touchMode: 'open' | 'close' | null = null;
+  let touchListenersActive = false;
 
   function lockGestures() {
     gestureLockedUntil = performance.now() + GESTURE_LOCK_DURATION;
@@ -355,6 +336,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
+    startTouchTracking();
   }
 
   function handleTouchMove(event: TouchEvent) {
@@ -375,7 +357,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   function handleTouchEnd(event: TouchEvent) {
     if (!touchMode || event.changedTouches.length !== 1) {
-      touchMode = null;
+      resetTouchGesture();
       return;
     }
 
@@ -384,6 +366,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     const touch = event.changedTouches[0];
     touchMode = null;
     touchStartedAtScrollEnd = false;
+    stopTouchTracking();
     if (!touch || gesturesLocked()) return;
 
     const deltaX = touch.clientX - touchStartX;
@@ -411,6 +394,23 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   function resetTouchGesture() {
     touchMode = null;
     touchStartedAtScrollEnd = false;
+    stopTouchTracking();
+  }
+
+  function startTouchTracking() {
+    if (touchListenersActive) return;
+    touchListenersActive = true;
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
+    document.addEventListener('touchcancel', resetTouchGesture, { passive: true });
+  }
+
+  function stopTouchTracking() {
+    if (!touchListenersActive) return;
+    touchListenersActive = false;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+    document.removeEventListener('touchcancel', resetTouchGesture);
   }
 
   const obs = new MutationObserver(() => {
@@ -442,9 +442,6 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   window.addEventListener('wheel', handleWheel, { passive: false });
   document.addEventListener('touchstart', handleTouchStart, { passive: true });
-  document.addEventListener('touchmove', handleTouchMove, { passive: false });
-  document.addEventListener('touchend', handleTouchEnd, { passive: false });
-  document.addEventListener('touchcancel', resetTouchGesture, { passive: true });
 
   onPanelClose('train', collapse);
 

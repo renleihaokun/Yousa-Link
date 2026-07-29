@@ -13,14 +13,8 @@
 </div>
 
 <script>
-  import { getNetworkInfo } from '../scripts/network-info';
-  import {
-    findCity,
-    getDistanceKm,
-    getNextTour,
-    getTourCity,
-    isSameCity
-  } from '../scripts/tour-distance';
+  import { getNextTour } from '../domain/tours';
+  import { getNetworkInfo } from '../services/network-info';
 
   const cityElement = document.getElementById('current-city');
   const distanceLabel = document.getElementById('distance-label');
@@ -33,7 +27,11 @@
 
   async function detectCity() {
     try {
-      const data = await getNetworkInfo();
+      const [data, cityDomain] = await Promise.all([
+        getNetworkInfo(),
+        import('../domain/cities')
+      ]);
+      const { findCity, getDistanceKm, getTourCity, isSameCity } = cityDomain;
       const rawCity = data.location?.city;
       const city = findCity(rawCity, data.location?.region);
       if (cityElement) cityElement.textContent = city?.name || rawCity || '未知';

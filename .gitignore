@@ -3,6 +3,9 @@ node_modules/
 
 # Build output
 dist/
+public/generated/
+playwright-report/
+test-results/
 
 # Astro
 .astro/

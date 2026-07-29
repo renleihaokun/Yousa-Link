@@ -3,7 +3,10 @@
 
 <div class="gallery-container" id="gallery-container">
   <button class="gallery-tab" id="gallery-tab" type="button" aria-label="打开看看鸢画廊">
-    <img class="tab-preview" id="tab-preview" src="" alt="" />
+    <picture class="tab-preview-picture">
+      <source id="tab-preview-source" type="image/webp" />
+      <img class="tab-preview" id="tab-preview" src="" alt="" />
+    </picture>
     <span class="tab-arrow" id="tab-arrow">›</span>
     <span class="tab-label">看看鸢</span>
   </button>
@@ -48,6 +51,7 @@
   const stage = document.getElementById('gallery-stage');
   const backdrop = document.getElementById('gallery-backdrop');
   const tab = document.getElementById('gallery-tab');
+  const tabPreviewSource = document.getElementById('tab-preview-source') as HTMLSourceElement;
   const tabPreview = document.getElementById('tab-preview') as HTMLImageElement;
   const heroImage = document.getElementById('hero-image') as HTMLImageElement;
   const panelBody = document.getElementById('panel-body');
@@ -60,8 +64,17 @@
   const lightboxNext = document.getElementById('lightbox-next');
   const lightboxOverlay = document.getElementById('lightbox-overlay');
 
-  let sampleImages: string[] = [];
-  let galleryImages: string[] = [];
+  type StickerItem = {
+    src: string;
+    thumbnail: string;
+    width: number;
+    height: number;
+    animated: boolean;
+  };
+  type StickerManifest = { version: 1; items: StickerItem[] };
+
+  let sampleImages: StickerItem[] = [];
+  let galleryImages: StickerItem[] = [];
   let lightboxIndex = 0;
   type MotionState = 'closed' | 'opening' | 'open' | 'closing';
   let motionState: MotionState = 'closed';
@@ -69,6 +82,8 @@
   let transitionVersion = 0;
   let entryRect: DOMRect | null = null;
   let activeAnimations: Animation[] = [];
+  let hoverFrame = 0;
+  let hoverClientX = 0;
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -103,7 +118,11 @@
   async function loadStickers() {
     try {
       const response = await fetch('/images/stickers.json');
-      sampleImages = await response.json();
+      if (!response.ok) throw new Error(`Sticker manifest request failed: ${response.status}`);
+      const manifest = await response.json() as StickerManifest;
+      sampleImages = manifest.version === 1 && Array.isArray(manifest.items)
+        ? manifest.items.filter((item) => item.src && item.thumbnail)
+        : [];
     } catch {
       console.error('Failed to load stickers.json');
     }
@@ -129,14 +148,17 @@
   }
 
   function updatePreview() {
-    const src = pickPreview();
-    if (src) tabPreview.src = src;
+    const item = pickPreview();
+    if (!item) return;
+    tabPreviewSource.srcset = item.thumbnail;
+    tabPreview.src = item.src;
+    tabPreview.dataset.thumbnail = item.thumbnail;
   }
 
   function openLightbox(index: number) {
     if (!lightbox || !lightboxImage) return;
     lightboxIndex = index;
-    lightboxImage.src = galleryImages[index];
+    lightboxImage.src = galleryImages[index].src;
     lightboxImage.alt = `表情包 ${index + 1}`;
     lightbox.classList.add('open');
     lightbox.setAttribute('aria-hidden', 'false');
@@ -151,7 +173,7 @@
   function navigateLightbox(direction: number) {
     if (galleryImages.length === 0) return;
     lightboxIndex = (lightboxIndex + direction + galleryImages.length) % galleryImages.length;
-    lightboxImage.src = galleryImages[lightboxIndex];
+    lightboxImage.src = galleryImages[lightboxIndex].src;
     lightboxImage.alt = `表情包 ${lightboxIndex + 1}`;
   }
 
@@ -174,7 +196,7 @@
     const columnCount = getColumnCount();
 
     grid.innerHTML = '';
-    galleryImages.forEach((img, index) => {
+    galleryImages.forEach((item, index) => {
       const div = document.createElement('div');
       div.className = 'gallery-item';
       div.style.setProperty('--i', String(index));
@@ -192,10 +214,15 @@
       imgEl.alt = `表情包 ${index + 1}`;
       imgEl.loading = 'lazy';
       imgEl.decoding = 'async';
-      imgEl.src = img;
+      const picture = document.createElement('picture');
+      const source = document.createElement('source');
+      source.type = 'image/webp';
+      source.srcset = item.thumbnail;
+      imgEl.src = item.src;
       imgEl.addEventListener('click', () => openLightbox(index));
 
-      inner.appendChild(imgEl);
+      picture.append(source, imgEl);
+      inner.appendChild(picture);
       div.appendChild(inner);
       grid.appendChild(div);
     });
@@ -324,13 +351,19 @@
     motionState = 'closed';
   }
 
-  document.addEventListener('mousemove', (e) => {
+  function updateGalleryHover() {
+    hoverFrame = 0;
     if (motionState !== 'closed') return;
-    const isNear = e.clientX < window.innerWidth * 0.2;
+    const isNear = hoverClientX < window.innerWidth * 0.2;
     container?.classList.toggle('hover', isNear);
     if (isNear && sampleImages.length > 0 && !tabPreview.getAttribute('src')) {
       updatePreview();
     }
+  }
+
+  document.addEventListener('mousemove', (event) => {
+    hoverClientX = event.clientX;
+    if (!hoverFrame) hoverFrame = requestAnimationFrame(updateGalleryHover);
   });
 
   tab?.addEventListener('click', async () => {
@@ -359,7 +392,7 @@
 
     if (sampleImages.length === 0) await loadStickers();
     if (!tabPreview.getAttribute('src')) updatePreview();
-    const selectedImage = tabPreview.getAttribute('src') || '';
+    const selectedImage = tabPreview.currentSrc || tabPreview.dataset.thumbnail || tabPreview.getAttribute('src') || '';
     if (!selectedImage) {
       motionState = 'closed';
       return;
@@ -474,12 +507,20 @@
   }, { passive: true });
 
   onPanelClose('gallery', closeGallery);
-  document.addEventListener('astro:before-swap', () => clearSceneBlur('gallery'), { once: true });
+  document.addEventListener('astro:before-swap', () => {
+    if (hoverFrame) cancelAnimationFrame(hoverFrame);
+    clearSceneBlur('gallery');
+  }, { once: true });
 
   loadStickers().then(updatePreview);
 </script>
 
 <style is:global>
+  .tab-preview-picture,
+  .gallery-inner picture {
+    display: contents;
+  }
+
   body.panel-open {
     overflow: hidden;
   }

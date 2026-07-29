@@ -1,7 +1,13 @@
 ---
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import albumsData from '../../data/albums.json';
 
 const { albums } = albumsData;
+type AlbumAsset = { src: string; sources: Array<{ src: string; width: number }> };
+const manifestPath = join(process.cwd(), 'public', 'generated', 'albums', 'manifest.json');
+const albumManifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { version: 1; items: AlbumAsset[] };
+const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.sources]));
 ---
 
 <div class="timeline-end-guard" id="timeline-end-guard" aria-hidden="true"></div>
@@ -21,7 +27,14 @@ const { albums } = albumsData;
         <div class="timeline-card card">
           <div class="album-year">{album.year}</div>
           <div class="album-cover">
-            <img src={album.cover} alt={album.title} loading="lazy" decoding="async" />
+            <picture>
+              <source
+                type="image/webp"
+                srcset={albumAssets.get(album.cover)?.map((source) => `${source.src} ${source.width}w`).join(', ')}
+                sizes="(max-width: 760px) calc(100vw - 100px), 420px"
+              />
+              <img src={album.cover} alt={album.title} loading="lazy" decoding="async" />
+            </picture>
           </div>
           <div class="album-info">
             <h3 class="album-title">{album.title}</h3>
@@ -287,6 +300,10 @@ const { albums } = albumsData;
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .album-cover picture {
+    display: contents;
   }
 
   .album-title {

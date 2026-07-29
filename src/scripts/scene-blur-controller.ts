@@ -3,13 +3,15 @@ export type BlurSource = 'timeline' | 'gallery' | 'game';
 const MAX_BLUR = 18;
 const blurValues = new Map<BlurSource, number>();
 const activeAnimations = new Map<BlurSource, { frame: number; resolve: () => void }>();
+let cachedLayer: HTMLElement | null = null;
 
 function clampBlur(value: number) {
   return Math.min(MAX_BLUR, Math.max(0, value));
 }
 
 function getLayer() {
-  return document.getElementById('scene-blur-layer');
+  cachedLayer ??= document.getElementById('scene-blur-layer');
+  return cachedLayer;
 }
 
 function applySceneBlur() {
