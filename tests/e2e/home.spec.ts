@@ -13,6 +13,26 @@ test.beforeEach(async ({ page }) => {
   }));
 });
 
+test('shows each first-visit notice once and keeps entry values on a whitelist', async ({ page }) => {
+  const notice = page.locator('#browser-notice');
+
+  await page.goto('/?entry=qr-main&utm_source=poster', { waitUntil: 'domcontentloaded' });
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveText('你是通过二维码进入的，建议换用支持 NFC 的手机碰一碰访问');
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(notice).toHaveCount(0);
+
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/?entry=%3Cscript%3Euntrusted%3C%2Fscript%3E', { waitUntil: 'domcontentloaded' });
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveText('建议使用 Chrome 或 Chromium 内核浏览器访问，以获得最佳体验');
+  await expect(notice).not.toContainText('untrusted');
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(notice).toHaveCount(0);
+});
+
 test('preserves map loading and baseline surface at every viewport', async ({ page }, testInfo) => {
   const googleFonts: string[] = [];
   const mapRequests: string[] = [];

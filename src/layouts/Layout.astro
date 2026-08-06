@@ -25,23 +25,33 @@
 </html>
 
 <script>
+  import {
+    getEntryNoticeStorageKey,
+    resolveEntryNotice
+  } from '../domain/entry-notices';
+  import { readStorage, writeStorage } from '../services/storage';
+
   const notice = document.getElementById('browser-notice');
-  const noticeKey = 'yousa-browser-notice-seen-v1';
+  const browserNotice = {
+    key: 'yousa-browser-notice-seen-v1',
+    message: '建议使用 Chrome 或 Chromium 内核浏览器访问，以获得最佳体验'
+  };
 
   if (notice) {
-    let hasSeenNotice = false;
-
-    try {
-      hasSeenNotice = localStorage.getItem(noticeKey) === '1';
-      if (!hasSeenNotice) localStorage.setItem(noticeKey, '1');
-    } catch {
-      hasSeenNotice = false;
-    }
+    const entryNotice = resolveEntryNotice(window.location.search);
+    const activeNotice = entryNotice
+      ? {
+          key: getEntryNoticeStorageKey(entryNotice),
+          message: entryNotice.message
+        }
+      : browserNotice;
+    const hasSeenNotice = readStorage('local', activeNotice.key) === '1';
 
     if (hasSeenNotice) {
       notice.remove();
     } else {
-      notice.textContent = '建议使用 Chrome 或 Chromium 内核浏览器访问，以获得最佳体验';
+      writeStorage('local', activeNotice.key, '1');
+      notice.textContent = activeNotice.message;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => notice.classList.add('visible'));
       });
