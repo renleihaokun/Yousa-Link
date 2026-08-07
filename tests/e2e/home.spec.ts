@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await page.route('https://ip.nemui.cn/**', (route) => route.fulfill({
@@ -13,24 +13,67 @@ test.beforeEach(async ({ page }) => {
   }));
 });
 
+async function dismissEntryNotice(page: Page) {
+  const overlay = page.locator('#entry-notice-overlay');
+  if (await overlay.count()) {
+    await expect(overlay).toHaveClass(/visible/);
+    await overlay.click({ position: { x: 6, y: 6 } });
+    await expect(overlay).toHaveCount(0);
+  }
+}
+
 test('shows each first-visit notice once and keeps entry values on a whitelist', async ({ page }) => {
+  const overlay = page.locator('#entry-notice-overlay');
   const notice = page.locator('#browser-notice');
 
   await page.goto('/?entry=qr-main&utm_source=poster', { waitUntil: 'domcontentloaded' });
+  await expect(overlay).toHaveClass(/visible/);
   await expect(notice).toBeVisible();
   await expect(notice).toHaveText('你是通过二维码进入的，建议换用支持 NFC 的手机碰一碰访问');
 
+  const [overlayBox, noticeBox, viewport] = await Promise.all([
+    overlay.boundingBox(),
+    notice.boundingBox(),
+    page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
+  ]);
+  expect(overlayBox?.width).toBe(viewport.width);
+  expect(overlayBox?.height).toBe(viewport.height);
+  expect(Math.abs((noticeBox?.x ?? 0) + (noticeBox?.width ?? 0) / 2 - viewport.width / 2)).toBeLessThan(2);
+  expect(Math.abs((noticeBox?.y ?? 0) + (noticeBox?.height ?? 0) / 2 - viewport.height / 2)).toBeLessThan(2);
+  expect(await overlay.evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return styles.backdropFilter || (styles as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter;
+  })).toContain('blur(');
+
+  await notice.click();
+  await expect(overlay).toHaveClass(/visible/);
+  await overlay.click({ position: { x: 6, y: 6 } });
+  await expect(overlay).toHaveCount(0);
+  await expect(page.locator('body')).not.toHaveClass(/entry-notice-open/);
+
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(notice).toHaveCount(0);
+  await expect(overlay).toHaveCount(0);
 
   await page.evaluate(() => localStorage.clear());
   await page.goto('/?entry=%3Cscript%3Euntrusted%3C%2Fscript%3E', { waitUntil: 'domcontentloaded' });
+  await expect(overlay).toHaveClass(/visible/);
   await expect(notice).toBeVisible();
   await expect(notice).toHaveText('建议使用 Chrome 或 Chromium 内核浏览器访问，以获得最佳体验');
   await expect(notice).not.toContainText('untrusted');
 
+  await page.keyboard.press('Escape');
+  await expect(overlay).toHaveCount(0);
+
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(notice).toHaveCount(0);
+  await expect(overlay).toHaveCount(0);
+});
+
+test('automatically dismisses the first-visit notice', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const overlay = page.locator('#entry-notice-overlay');
+  await expect(overlay).toHaveClass(/visible/);
+  await expect(overlay).toHaveCount(0, { timeout: 6_000 });
+  await expect(page.locator('body')).not.toHaveClass(/entry-notice-open/);
 });
 
 test('preserves map loading and baseline surface at every viewport', async ({ page }, testInfo) => {
@@ -42,6 +85,7 @@ test('preserves map loading and baseline surface at every viewport', async ({ pa
   });
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await dismissEntryNotice(page);
   await page.locator('#map-chart canvas').first().waitFor({ state: 'attached' });
   await expect.poll(async () => page.locator('#map-chart canvas').count()).toBeGreaterThan(0);
   const canvasStats = await page.locator('#map-chart canvas').evaluateAll((canvases) => canvases.map((canvas) => {
@@ -64,6 +108,7 @@ test('loads sticker previews before lightbox and original only on lightbox', asy
     if (/\/images\/stickers\//.test(request.url())) originalRequests.push(request.url());
   });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await dismissEntryNotice(page);
   await page.mouse.move(0, Math.floor((await page.evaluate(() => innerHeight)) / 2));
   await page.locator('#gallery-tab').click();
   await expect(page.locator('#gallery-grid .gallery-item').first()).toBeVisible({ timeout: 10_000 });
@@ -75,6 +120,7 @@ test('loads sticker previews before lightbox and original only on lightbox', asy
 
 test('keeps panel state transitions exclusive', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await dismissEntryNotice(page);
   const stack = page.locator('#card-stack');
   await stack.click();
   await expect(stack).toHaveClass(/expanded/);
@@ -86,6 +132,7 @@ test('keeps panel state transitions exclusive', async ({ page }) => {
 
 test('opens, renders, and closes the game without changing panel semantics', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await dismissEntryNotice(page);
   await page.locator('#game-tab').click();
   const panel = page.locator('#game-panel');
   await expect(panel).toHaveClass(/expanded/);

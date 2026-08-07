@@ -11,12 +11,18 @@
 <body>
   <slot />
   <div
-    class="browser-notice"
-    id="browser-notice"
-    role="status"
-    aria-live="polite"
-    aria-atomic="true"
-  ></div>
+    class="entry-notice-overlay"
+    id="entry-notice-overlay"
+    aria-hidden="true"
+  >
+    <div
+      class="browser-notice"
+      id="browser-notice"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
+  </div>
   <div class="beian-seo" style="display: none;">
     <a href="https://beian.miit.gov.cn/">苏ICP备2026010399号-1</a>
     <a href="https://beian.mps.gov.cn/#/query/webSearch?code=32059002007654">苏公网安备32059002007654号</a>
@@ -31,13 +37,14 @@
   } from '../domain/entry-notices';
   import { readStorage, writeStorage } from '../services/storage';
 
+  const overlay = document.getElementById('entry-notice-overlay');
   const notice = document.getElementById('browser-notice');
   const browserNotice = {
     key: 'yousa-browser-notice-seen-v1',
     message: '建议使用 Chrome 或 Chromium 内核浏览器访问，以获得最佳体验'
   };
 
-  if (notice) {
+  if (overlay && notice) {
     const entryNotice = resolveEntryNotice(window.location.search);
     const activeNotice = entryNotice
       ? {
@@ -48,18 +55,57 @@
     const hasSeenNotice = readStorage('local', activeNotice.key) === '1';
 
     if (hasSeenNotice) {
-      notice.remove();
+      overlay.remove();
     } else {
       writeStorage('local', activeNotice.key, '1');
       notice.textContent = activeNotice.message;
+      document.body.classList.add('entry-notice-open');
+      overlay.setAttribute('aria-hidden', 'false');
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const cardExitDelay = prefersReducedMotion ? 0 : 120;
+      const removalDelay = prefersReducedMotion ? 20 : 760;
+      let isDismissing = false;
+      let autoDismissTimer: number | undefined;
+      let backdropExitTimer: number | undefined;
+      let removalTimer: number | undefined;
+
+      const cleanUp = () => {
+        window.clearTimeout(autoDismissTimer);
+        window.clearTimeout(backdropExitTimer);
+        window.clearTimeout(removalTimer);
+        document.removeEventListener('keydown', handleKeydown);
+        document.body.classList.remove('entry-notice-open');
+        overlay.remove();
+      };
+
+      const dismissNotice = () => {
+        if (isDismissing) return;
+        isDismissing = true;
+        window.clearTimeout(autoDismissTimer);
+        overlay.classList.add('leaving');
+
+        backdropExitTimer = window.setTimeout(() => {
+          overlay.classList.remove('visible');
+          overlay.setAttribute('aria-hidden', 'true');
+        }, cardExitDelay);
+        removalTimer = window.setTimeout(cleanUp, removalDelay);
+      };
+
+      function handleKeydown(event: KeyboardEvent) {
+        if (event.key === 'Escape') dismissNotice();
+      }
+
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) dismissNotice();
+      });
+      document.addEventListener('keydown', handleKeydown);
+
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => notice.classList.add('visible'));
+        requestAnimationFrame(() => overlay.classList.add('visible'));
       });
 
-      window.setTimeout(() => {
-        notice.classList.remove('visible');
-        window.setTimeout(() => notice.remove(), 450);
-      }, 4000);
+      autoDismissTimer = window.setTimeout(dismissNotice, 4000);
     }
   }
 </script>
@@ -67,47 +113,91 @@
 <style is:global>
   @import '../styles/global.css';
 
-  .browser-notice {
-    position: fixed;
-    left: 50%;
-    bottom: max(24px, var(--safe-bottom));
-    z-index: 600;
-    width: max-content;
-    max-width: calc(100vw - 32px);
-    padding: 11px 16px;
-    transform: translate(-50%, 8px);
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-    color: rgba(255, 255, 255, 0.92);
-    background: rgba(17, 19, 23, 0.84);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 8px;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
-    font-size: 13px;
-    line-height: 1.5;
-    text-align: center;
-    transition:
-      opacity 400ms ease,
-      transform 400ms var(--ease-standard),
-      visibility 0s linear 400ms;
+  html:has(> body.entry-notice-open),
+  body.entry-notice-open {
+    overflow: hidden;
   }
 
-  .browser-notice.visible {
-    transform: translate(-50%, 0);
+  .entry-notice-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 650;
+    display: grid;
+    place-items: center;
+    padding:
+      max(20px, env(safe-area-inset-top))
+      max(20px, env(safe-area-inset-right))
+      max(20px, env(safe-area-inset-bottom))
+      max(20px, env(safe-area-inset-left));
+    visibility: hidden;
+    pointer-events: none;
+    background: rgba(3, 5, 8, 0);
+    backdrop-filter: blur(0) saturate(100%);
+    -webkit-backdrop-filter: blur(0) saturate(100%);
+    transition:
+      background-color 560ms ease,
+      backdrop-filter 560ms var(--ease-standard),
+      -webkit-backdrop-filter 560ms var(--ease-standard),
+      visibility 0s linear 620ms;
+  }
+
+  .entry-notice-overlay.visible {
     visibility: visible;
-    opacity: 1;
+    pointer-events: auto;
+    background: rgba(3, 5, 8, 0.58);
+    backdrop-filter: blur(18px) saturate(112%);
+    -webkit-backdrop-filter: blur(18px) saturate(112%);
     transition-delay: 0s;
+  }
+
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .entry-notice-overlay.visible {
+      background: rgba(3, 5, 8, 0.38);
+    }
+  }
+
+  .browser-notice {
+    width: min(560px, calc(100vw - 40px));
+    padding: 30px 34px;
+    transform: translateY(18px) scale(0.95);
+    opacity: 0;
+    pointer-events: auto;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(17, 19, 23, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    box-shadow:
+      0 24px 70px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(234, 149, 179, 0.08);
+    backdrop-filter: blur(24px) saturate(135%);
+    -webkit-backdrop-filter: blur(24px) saturate(135%);
+    font-size: 16px;
+    line-height: 1.75;
+    text-align: center;
+    transition:
+      opacity 360ms ease,
+      transform 440ms var(--ease-emphasized);
+  }
+
+  .entry-notice-overlay.visible .browser-notice {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  .entry-notice-overlay.leaving .browser-notice {
+    transform: translateY(-6px) scale(0.97);
+    opacity: 0;
+    transition:
+      opacity 180ms ease,
+      transform 260ms ease;
   }
 
   @media (max-width: 767px) {
     .browser-notice {
-      bottom: calc(var(--safe-bottom) + 72px);
-      width: calc(100vw - 32px);
-      padding: 10px 14px;
-      font-size: 12px;
+      width: calc(100vw - 40px);
+      padding: 24px 22px;
+      font-size: 15px;
+      line-height: 1.7;
     }
   }
 </style>
