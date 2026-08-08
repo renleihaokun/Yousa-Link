@@ -19,12 +19,12 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "astro": "^7.1.5",
+    "astro": "^7.1.6",
     "echarts": "^6.1.0",
     "lucide-astro": "^0.556.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^26.1.2",
     "happy-dom": "^20.11.1",
     "pinyin-pro": "3.28.2",
