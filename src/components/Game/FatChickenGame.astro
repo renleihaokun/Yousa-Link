@@ -71,6 +71,7 @@
   const CHICKEN_HEIGHT = 64;
   const DEFAULT_CHICKEN_RATIO = 500 / 380;
   const ALPHA_HIT_THRESHOLD = 32;
+  const MAX_SPRITE_MASK_DIMENSION = 256;
   const gameContainer = document.getElementById('game-container');
   const tab = document.getElementById('game-tab');
   const tabThumb = document.getElementById('tab-thumb') ;
@@ -118,6 +119,7 @@
   type SpriteVariant = {
     image: HTMLImageElement;
     mask: SpriteMask;
+    state: 'loading' | 'ready' | 'failed';
     ready: Promise<void>;
   };
 
@@ -296,7 +298,10 @@
   }
 
   function pickSpriteSrc() {
-    return Math.random() < EASTER_EGG_CHANCE ? easterEggSpriteSrc : spriteSrc;
+    const easterEgg = spriteVariants.get(easterEggSpriteSrc);
+    return Math.random() < EASTER_EGG_CHANCE && easterEgg?.state === 'ready'
+      ? easterEggSpriteSrc
+      : spriteSrc;
   }
 
   function loadSprite(src: string) {
@@ -307,27 +312,51 @@
     const variant: SpriteVariant = {
       image,
       mask: { pixels: null, width: 0, height: 0 },
+      state: 'loading',
       ready: Promise.resolve()
     };
     variant.ready = new Promise<void>((resolve) => {
-      image.onload = () => {
-        variant.mask = prepareSpritePixels(image);
+      const settle = (state: SpriteVariant['state']) => {
+        variant.state = state;
+        image.onload = null;
+        image.onerror = null;
         resolve();
       };
-      image.onerror = () => resolve();
+      image.onload = () => {
+        let state: SpriteVariant['state'] = 'ready';
+        try {
+          variant.mask = prepareSpritePixels(image);
+        } catch {
+          state = 'failed';
+        } finally {
+          settle(state);
+        }
+      };
+      image.onerror = () => settle('failed');
       image.src = src;
     });
     spriteVariants.set(src, variant);
     return variant;
   }
 
+  const baseSpriteVariant = loadSprite(spriteSrc);
+  const preloadEasterEgg = () => { void loadSprite(easterEggSpriteSrc).ready; };
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  };
+  if (idleWindow.requestIdleCallback) {
+    idleWindow.requestIdleCallback(preloadEasterEgg, { timeout: 1500 });
+  } else {
+    window.setTimeout(preloadEasterEgg, 0);
+  }
+
   function activateSprite(src: string) {
     const preferred = spriteVariants.get(src);
     const fallback = spriteVariants.get(spriteSrc);
-    const variant = preferred?.image.naturalWidth && preferred.image.naturalHeight
+    const variant = preferred?.state === 'ready'
       ? preferred
-      : fallback ?? preferred;
-    if (!variant) return;
+      : fallback?.state === 'ready' ? fallback : undefined;
+    if (!variant) return false;
 
     sprite = variant.image;
     spritePixels = variant.mask.pixels;
@@ -339,14 +368,16 @@
       chicken.width = targetHeight * (sprite.naturalWidth / sprite.naturalHeight);
       chicken.height = targetHeight;
     }
+    return true;
   }
 
   async function prepareCanvasForLanding(initialSpriteSrc: string) {
     ctx = canvas.getContext('2d')!;
     resizeCanvas();
-    const variants = [loadSprite(spriteSrc), loadSprite(easterEggSpriteSrc)];
-    await Promise.all(variants.map((variant) => variant.ready));
-    activateSprite(initialSpriteSrc);
+    await baseSpriteVariant.ready;
+    if (!activateSprite(initialSpriteSrc)) {
+      throw new Error('The base chicken sprite failed to load.');
+    }
     const { width, height } = getCanvasSize();
     chicken.x = Math.max(0, Math.min(width - chicken.width, width * 0.62 - chicken.width / 2));
     chicken.y = Math.max(0, Math.min(height - chicken.height, height * 0.42 - chicken.height / 2));
@@ -371,13 +402,14 @@
 
   function prepareSpritePixels(source: HTMLImageElement): SpriteMask {
     const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = source.naturalWidth;
-    maskCanvas.height = source.naturalHeight;
+    const scale = Math.min(1, MAX_SPRITE_MASK_DIMENSION / Math.max(source.naturalWidth, source.naturalHeight));
+    maskCanvas.width = Math.max(1, Math.round(source.naturalWidth * scale));
+    maskCanvas.height = Math.max(1, Math.round(source.naturalHeight * scale));
     const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
     if (!maskCtx) return { pixels: null, width: 0, height: 0 };
 
     try {
-      maskCtx.drawImage(source, 0, 0);
+      maskCtx.drawImage(source, 0, 0, maskCanvas.width, maskCanvas.height);
       return {
         pixels: maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data,
         width: maskCanvas.width,
@@ -706,7 +738,13 @@
 
     await nextFrame();
     await nextFrame();
-    const landingRect = await prepareCanvasForLanding(initialSpriteSrc);
+    let landingRect: DOMRect;
+    try {
+      landingRect = await prepareCanvasForLanding(initialSpriteSrc);
+    } catch {
+      if (version === transitionVersion) await closeGame();
+      return;
+    }
     if (version !== transitionVersion || !entryRect) return;
 
     heroChicken.src = sprite.src;

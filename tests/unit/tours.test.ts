@@ -20,15 +20,21 @@ describe('tour domain', () => {
     expect(getTours()[0].delay).toBe(0);
   });
 
-  it('returns dated tours in order and keeps an undated tour as the final fallback', () => {
+  it('returns the next dated tour in chronological order', () => {
     expect(getNextTour(new Date('2026-07-20T12:00:00'))?.id).toBe('beijing');
-    expect(getNextTour(new Date('2027-01-01T12:00:00'))?.id).toBe('shanghai');
+    expect(getNextTour(new Date('2026-09-27T12:00:00'))?.id).toBe('shanghai');
+    expect(getNextTour(new Date('2027-01-01T12:00:00'))).toBeUndefined();
   });
 
   it('derives schedule labels, cities, and adjacent routes', () => {
     const schedule = getTourSchedule(new Date('2026-08-02T12:00:00'));
     expect(schedule.find((tour) => tour.id === 'beijing')?.isPast).toBe(true);
     expect(schedule.find((tour) => tour.id === 'hangzhou')?.daysText).toBe('13天后');
+    expect(schedule.find((tour) => tour.id === 'shanghai')).toMatchObject({
+      date: '2026-10-03',
+      dateDisplay: '10月3日',
+      venue: '回响之地·前滩馆'
+    });
     expect(getTourCities()).toHaveLength(getTours().length);
     expect(getTourRoutes()).toHaveLength(getTours().length - 1);
     expect(getTourRoutes()[0]).toEqual({

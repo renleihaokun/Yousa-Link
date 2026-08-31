@@ -22,6 +22,16 @@ async function dismissEntryNotice(page: Page) {
   }
 }
 
+async function canvasHasContent(page: Page) {
+  return page.locator('#game-canvas').evaluate((canvas) => {
+    const context = (canvas as HTMLCanvasElement).getContext('2d');
+    if (!context) return false;
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 3; i < pixels.length; i += 16) if (pixels[i] > 0) return true;
+    return false;
+  });
+}
+
 test('shows each first-visit notice once and keeps entry values on a whitelist', async ({ page }) => {
   const overlay = page.locator('#entry-notice-overlay');
   const notice = page.locator('#browser-notice');
@@ -130,21 +140,111 @@ test('keeps panel state transitions exclusive', async ({ page }) => {
   await expect(page.locator('body')).not.toHaveClass(/panel-open/);
 });
 
+test('keeps the mobile train details compact and on one line', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await dismissEntryNotice(page);
+
+  for (const width of [375, 320]) {
+    await page.setViewportSize({ width, height: 812 });
+    const stack = page.locator('#card-stack');
+    await stack.click();
+    await expect(stack).toHaveClass(/expanded/);
+
+    await expect(page.locator('.card-train').first()).toBeHidden();
+    await expect(page.locator('.card-venue-meta').first()).toBeHidden();
+    await expect(page.locator('.mobile-status').first()).toBeHidden();
+    await expect(page.locator('.card-waiting').first()).toBeVisible();
+    await expect(page.locator('.card-status').first()).toBeVisible();
+
+    const layout = await page.locator('.tour-card').evaluateAll((cards) => cards.map((card) => {
+      const waitingValue = card.querySelector('.waiting-value');
+      const waitingRange = document.createRange();
+      if (waitingValue) waitingRange.selectNodeContents(waitingValue);
+      return {
+        overflows: card.scrollWidth > card.clientWidth + 1,
+        waitingLines: waitingValue ? waitingRange.getClientRects().length : 0,
+        waitingWhiteSpace: waitingValue ? getComputedStyle(waitingValue).whiteSpace : ''
+      };
+    }));
+    expect(layout.every((card) => !card.overflows)).toBe(true);
+    expect(layout.every((card) => card.waitingLines === 1 && card.waitingWhiteSpace === 'nowrap')).toBe(true);
+    await expect(page.locator('.waiting-value', { hasText: '回响之地·前滩馆' })).toBeVisible();
+
+    const colors = await page.evaluate(() => {
+      const resolveColor = (color: string) => {
+        const probe = document.createElement('span');
+        probe.style.color = color;
+        document.body.append(probe);
+        const resolved = getComputedStyle(probe).color;
+        probe.remove();
+        return resolved;
+      };
+      return {
+        expectedPast: resolveColor('var(--color-yellow)'),
+        expectedUpcoming: resolveColor('#4ade80'),
+        past: [...document.querySelectorAll('.card-status.is-past .status-value')]
+          .map((element) => getComputedStyle(element).color),
+        upcoming: [...document.querySelectorAll('.card-status:not(.is-past) .status-value')]
+          .map((element) => getComputedStyle(element).color)
+      };
+    });
+    expect(colors.past.length).toBeGreaterThan(0);
+    expect(colors.upcoming.length).toBeGreaterThan(0);
+    expect(colors.past.every((color) => color === colors.expectedPast)).toBe(true);
+    expect(colors.upcoming.every((color) => color === colors.expectedUpcoming)).toBe(true);
+
+    await page.keyboard.press('Escape');
+    await expect(stack).not.toHaveClass(/expanded/);
+  }
+});
+
 test('opens, renders, and closes the game without changing panel semantics', async ({ page }) => {
+  await page.route('**/images/game/yousa-WTF.png', (route) => route.abort());
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await dismissEntryNotice(page);
   await page.locator('#game-tab').click();
   const panel = page.locator('#game-panel');
   await expect(panel).toHaveClass(/expanded/);
   await expect(page.locator('body')).toHaveAttribute('data-open-panel', 'game');
-  await expect.poll(() => page.locator('#game-canvas').evaluate((canvas) => {
-    const context = (canvas as HTMLCanvasElement).getContext('2d');
-    if (!context) return false;
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    for (let i = 3; i < pixels.length; i += 16) if (pixels[i] > 0) return true;
-    return false;
-  })).toBe(true);
+  await expect.poll(() => canvasHasContent(page)).toBe(true);
   await page.locator('#close-tab').click();
   await expect(panel).not.toHaveClass(/expanded/);
   await expect(page.locator('body')).not.toHaveAttribute('data-open-panel', 'game');
+});
+
+test('does not block a cold game open on the optional sprite', async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+  let releaseEasterEgg = () => {};
+  const easterEggGate = new Promise<void>((resolve) => {
+    releaseEasterEgg = resolve;
+  });
+  await page.route('**/images/game/yousa-WTF.png', async (route) => {
+    await easterEggGate;
+    await route.continue();
+  });
+
+  const easterEggRequest = page.waitForRequest((request) => request.url().endsWith('/images/game/yousa-WTF.png'));
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await dismissEntryNotice(page);
+  await easterEggRequest;
+  const panel = page.locator('#game-panel');
+  await page.locator('#game-tab').click();
+  await expect(panel).toHaveClass(/expanded/);
+  await expect.poll(() => canvasHasContent(page), { timeout: 2_500 }).toBe(true);
+  await expect(page.locator('#hero-chicken')).toHaveAttribute('src', '/images/game/yousa-chicken.png');
+
+  const easterEggResponse = page.waitForResponse((response) => response.url().endsWith('/images/game/yousa-WTF.png'));
+  releaseEasterEgg();
+  await easterEggResponse;
+  await page.locator('#close-tab').click();
+  await expect(panel).not.toHaveClass(/expanded/);
+
+  await page.locator('#game-tab').click();
+  await expect(panel).toHaveClass(/expanded/);
+  await expect(page.locator('#hero-chicken')).toHaveAttribute('src', '/images/game/yousa-WTF.png');
+  await expect.poll(() => canvasHasContent(page)).toBe(true);
+  await page.locator('#close-tab').click();
+  await expect(panel).not.toHaveClass(/expanded/);
 });

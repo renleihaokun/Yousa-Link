@@ -80,11 +80,12 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
                     <span class="card-date">{item.dateDisplay}</span>
                     <span
                       class="mobile-status"
+                      class:list={{ 'is-past': item.isPast }}
                       data-tour-date={item.date}
                       data-tour-delay={item.delay ?? 0}
                     >{item.daysText}</span>
                     {item.venue && (
-                      <><span class="meta-sep">·</span><span class="card-venue">{item.venue}</span></>
+                      <span class="card-venue-meta"><span class="meta-sep">·</span><span class="card-venue">{item.venue}</span></span>
                     )}
                   </div>
                 </div>
@@ -457,6 +458,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     const days = Math.round((effectiveDate.getTime() - today.getTime()) / 86400000);
     const daysText = days > 0 ? `${days}天后` : days < 0 ? `${Math.abs(days)}天前` : '今天';
     const delayText = delay > 0 ? `晚点${delay}天` : delay < 0 ? `提前${Math.abs(delay)}天` : '正点';
+    element.classList.toggle('is-past', days < 0);
     element.textContent = element.classList.contains('status-value')
       ? `${daysText}·${delayText}`
       : daysText;
@@ -671,6 +673,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   .waiting-value {
     color: #6b7280;
     font-weight: 600;
+    white-space: nowrap;
   }
 
   .card-route {
@@ -714,12 +717,22 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     white-space: nowrap;
   }
 
+  .mobile-status.is-past {
+    color: var(--color-yellow);
+  }
+
   .meta-sep {
     color: var(--color-text-light);
   }
 
   .card-venue {
     color: var(--color-text-light);
+  }
+
+  .card-venue-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .card-nest {
@@ -843,15 +856,38 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
   }
 
   @media (max-width: 520px) {
+    .tour-card {
+      padding: 10px 8px;
+    }
+
+    .card-body {
+      gap: 4px;
+    }
+
     .card-right {
+      display: flex;
+      gap: 4px;
+    }
+
+    .card-train,
+    .card-venue-meta,
+    .mobile-status {
       display: none;
     }
 
-    .mobile-status {
-      display: inline;
+    .card-waiting {
+      min-width: 102px;
     }
 
-    .card-route,
+    .card-status {
+      min-width: 86px;
+    }
+
+    .card-route {
+      gap: 3px;
+      font-size: 14px;
+    }
+
     .card-meta {
       white-space: normal;
     }

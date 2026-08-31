@@ -63,7 +63,7 @@
       "delay": 0,
       "venue": "厦门场",
       "trainNumber": "鸢148",
-      "waitingRoom": "待定"
+      "waitingRoom": "Full House"
     },
     {
       "id": "wuhan",
@@ -76,20 +76,20 @@
       "delay": 0,
       "venue": "武汉场",
       "trainNumber": "鸢148",
-      "waitingRoom": "待定"
+      "waitingRoom": "MAO"
     },
     {
       "id": "shanghai",
       "coordinates": [121.4737, 31.2304],
       "from": "武汉",
       "to": "上海",
-      "date": "",
-      "dateDisplay": "那时候",
+      "date": "2026-10-03",
+      "dateDisplay": "10月3日",
       "status": "upcoming",
       "delay": 0,
       "venue": "上海场",
       "trainNumber": "鸢148",
-      "waitingRoom": "待定"
+      "waitingRoom": "回响之地·前滩馆"
     }
   ]
 }
