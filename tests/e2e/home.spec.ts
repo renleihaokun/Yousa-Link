@@ -185,6 +185,8 @@ test('keeps the mobile train details compact and on one line', async ({ page }) 
         waitingWhiteSpace: waitingValue ? getComputedStyle(waitingValue).whiteSpace : '',
         routeClipped: route ? route.scrollWidth > route.clientWidth + 1 : false,
         dateLines: date ? dateRange.getClientRects().length : 0,
+        waitingColumn: waiting ? `${Math.round(waiting.left)}/${Math.round(waiting.width)}` : '',
+        statusColumn: status ? `${Math.round(status.left)}/${Math.round(status.width)}` : '',
         columnsOverlap: Boolean(
           info && waiting && status
           && (info.right - waiting.left > 1 || waiting.right - status.left > 1)
@@ -196,6 +198,8 @@ test('keeps the mobile train details compact and on one line', async ({ page }) 
     expect(layout.every((card) => !card.routeClipped)).toBe(true);
     expect(layout.every((card) => card.dateLines === 1)).toBe(true);
     expect(layout.every((card) => !card.columnsOverlap)).toBe(true);
+    // 候车室与状态是固定列宽，所有卡片必须对齐成一条
+    expect(new Set(layout.map((card) => `${card.waitingColumn}|${card.statusColumn}`)).size).toBe(1);
     await expect(page.locator('.waiting-value', { hasText: '回响之地·前滩馆' })).toBeVisible();
 
     const colors = await page.evaluate(() => {

@@ -923,8 +923,9 @@ if (!nestFirst) {
     }
 
     .card-waiting {
+      flex: 0 0 90px;
       min-width: 0;
-      max-width: 96px;
+      max-width: none;
     }
 
     .waiting-value {
@@ -939,13 +940,13 @@ if (!nestFirst) {
 
     /* 窄屏展开态收紧左右留白，给“路线 + 日期 + 候车室 + 状态”留出一行放下的宽度 */
     .card-stack.expanded .tour-card {
-      left: 10px;
-      width: calc(100% - 20px);
+      left: 8px;
+      width: calc(100% - 16px);
     }
 
     .stack-footer {
-      left: 10px;
-      width: calc(100% - 20px);
+      left: 8px;
+      width: calc(100% - 16px);
     }
 
     .card-route {
