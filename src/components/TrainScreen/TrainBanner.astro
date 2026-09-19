@@ -653,7 +653,8 @@ if (!nestFirst) {
     display: flex;
     flex-direction: column;
     gap: 7px;
-    min-width: 0;
+    /* 路线与日期按字体实际宽度占位，任何字体下都不会被裁 */
+    min-width: min-content;
   }
 
   .card-right {
@@ -693,6 +694,7 @@ if (!nestFirst) {
 
   .card-waiting {
     width: 100px;
+    min-width: 0;
   }
 
   .card-status {
@@ -937,7 +939,7 @@ if (!nestFirst) {
     /* 左侧“某地→某地 / 日期”优先占位，右侧候车室与状态让位并按需省略 */
     .card-info {
       flex: 1 1 auto;
-      min-width: 76px;
+      min-width: min-content;
     }
 
     .card-waiting {

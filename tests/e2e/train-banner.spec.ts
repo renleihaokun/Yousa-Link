@@ -96,16 +96,20 @@ test('keeps the train columns aligned and unclipped at every width', async ({ pa
       };
       const route = node.querySelector('.card-route');
       const waiting = node.querySelector('.waiting-value');
+      const waitingRange = document.createRange();
+      if (waiting) waitingRange.selectNodeContents(waiting);
       return {
         columns: `${column('.card-train')}|${column('.card-waiting')}|${column('.card-status')}`,
-        clipped: Boolean(route && route.scrollWidth > route.clientWidth + 1)
-          || Boolean(waiting && waiting.scrollWidth > waiting.clientWidth + 1)
+        routeClipped: Boolean(route && route.scrollWidth > route.clientWidth + 1),
+        waitingLines: waiting ? waitingRange.getClientRects().length : 0,
+        overflows: node.scrollWidth > node.clientWidth + 1
       };
     }));
 
     expect(cards.length).toBeGreaterThan(1);
     expect(new Set(cards.map((card) => card.columns)).size).toBe(1);
-    expect(cards.every((card) => !card.clipped)).toBe(true);
+    expect(cards.every((card) => !card.routeClipped)).toBe(true);
+    expect(cards.every((card) => card.waitingLines === 1 && !card.overflows)).toBe(true);
 
     await page.keyboard.press('Escape');
     await expect(stack).not.toHaveClass(/expanded/);
