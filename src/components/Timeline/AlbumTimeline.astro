@@ -48,12 +48,18 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
 
 <script>
   import { clearSceneBlur, setSceneBlur } from '../../scripts/scene-blur-controller';
+  import { shouldPeekTimeline } from '../../domain/timeline-hint';
 
+  const PEEK_CLASS = 'timeline-peek';
+  const PEEK_MAX_WAIT_MS = 8_000;
   const timelineSection = document.getElementById('timeline-section');
   let blurFrame = 0;
+  let peekActive = false;
 
   function updateTimelineDepth() {
     blurFrame = 0;
+    // 弹跳期间拿到的是动画中的位置，按它算会在页面顶部误判成"已经滑到时间线"
+    if (peekActive) return;
     if (!timelineSection) return;
 
     const viewport = window.visualViewport;
@@ -93,8 +99,81 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
   window.visualViewport?.addEventListener('resize', queueTimelineDepthUpdate);
   queueTimelineDepthUpdate();
 
+  function timelinePeekAllowed() {
+    return shouldPeekTimeline({
+      reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      scrollY: window.scrollY,
+      timelineActive: document.documentElement.classList.contains('timeline-active'),
+      panelOpen: Boolean(document.body.dataset.openPanel)
+    });
+  }
+
+  function teardownTimelinePeek() {
+    peekActive = false;
+    timelineSection?.classList.remove(PEEK_CLASS);
+    timelineSection?.removeEventListener('animationend', handleTimelinePeekEnd);
+    window.removeEventListener('scroll', stopTimelinePeek);
+    window.removeEventListener('wheel', stopTimelinePeek);
+    window.removeEventListener('touchstart', stopTimelinePeek);
+  }
+
+  function stopTimelinePeek() {
+    if (!peekActive) return;
+    teardownTimelinePeek();
+    queueTimelineDepthUpdate();
+  }
+
+  function handleTimelinePeekEnd(event: AnimationEvent) {
+    if (event.target === timelineSection) stopTimelinePeek();
+  }
+
+  function startTimelinePeek() {
+    if (peekActive || !timelineSection || !timelinePeekAllowed()) return;
+    peekActive = true;
+    timelineSection.classList.add(PEEK_CLASS);
+    timelineSection.addEventListener('animationend', handleTimelinePeekEnd);
+    // 用户一动页面就收手，免得弹跳和滚动打架
+    window.addEventListener('scroll', stopTimelinePeek, { passive: true });
+    window.addEventListener('wheel', stopTimelinePeek, { passive: true });
+    window.addEventListener('touchstart', stopTimelinePeek, { passive: true });
+  }
+
+  // 首访提示浮层会挡住整个页面，等它关掉再弹
+  function whenEntryNoticeClosed(callback: () => void) {
+    const noticeOpen = () => Boolean(document.getElementById('entry-notice-overlay'));
+    if (!noticeOpen()) {
+      callback();
+      return;
+    }
+
+    let settled = false;
+    let timeoutId = 0;
+    let observer: MutationObserver | undefined;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      observer?.disconnect();
+      callback();
+    };
+
+    observer = new MutationObserver(() => {
+      if (!noticeOpen()) finish();
+    });
+    timeoutId = window.setTimeout(finish, PEEK_MAX_WAIT_MS);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function scheduleTimelinePeek() {
+    whenEntryNoticeClosed(startTimelinePeek);
+  }
+
+  if (document.readyState === 'complete') scheduleTimelinePeek();
+  else window.addEventListener('load', scheduleTimelinePeek, { once: true });
+
   function cleanupTimelineDepth() {
     if (blurFrame) cancelAnimationFrame(blurFrame);
+    teardownTimelinePeek();
     observer.disconnect();
     window.removeEventListener('scroll', queueTimelineDepthUpdate);
     window.removeEventListener('resize', queueTimelineDepthUpdate);
@@ -178,6 +257,47 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
 
   .timeline-handle:hover .handle-bar {
     background: rgba(255, 255, 255, 0.3);
+  }
+
+  /* 加载完成后弹两下露出手柄，提示下方还有内容 */
+  .timeline-section.timeline-peek {
+    animation: timeline-peek 1.35s var(--ease-standard);
+  }
+
+  .timeline-section.timeline-peek .handle-bar {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  @keyframes timeline-peek {
+    0% {
+      transform: translateY(0);
+    }
+
+    18% {
+      transform: translateY(-60px);
+    }
+
+    38% {
+      transform: translateY(-8px);
+    }
+
+    58% {
+      transform: translateY(-46px);
+    }
+
+    78% {
+      transform: translateY(-6px);
+    }
+
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .timeline-section.timeline-peek {
+      animation: none;
+    }
   }
 
   .timeline-header {
