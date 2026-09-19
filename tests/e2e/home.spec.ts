@@ -144,11 +144,14 @@ test('keeps the mobile train details compact and on one line', async ({ page }) 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await dismissEntryNotice(page);
 
-  for (const width of [375, 320]) {
+  for (const width of [414, 375, 360, 320]) {
     await page.setViewportSize({ width, height: 812 });
     const stack = page.locator('#card-stack');
     await stack.click();
     await expect(stack).toHaveClass(/expanded/);
+    // 卡片宽高是动画出来的，量布局前先等展开动效落定
+    await expect(stack).toHaveClass(/rebounding/);
+    await expect(stack).not.toHaveClass(/rebounding/);
 
     await expect(page.locator('.card-train').first()).toBeHidden();
     await expect(page.locator('.card-venue-meta').first()).toBeHidden();
@@ -160,14 +163,31 @@ test('keeps the mobile train details compact and on one line', async ({ page }) 
       const waitingValue = card.querySelector('.waiting-value');
       const waitingRange = document.createRange();
       if (waitingValue) waitingRange.selectNodeContents(waitingValue);
+      const route = card.querySelector('.card-route');
+      const date = card.querySelector('.card-date');
+      const dateRange = document.createRange();
+      if (date) dateRange.selectNodeContents(date);
+      const box = (selector: string) => card.querySelector(selector)?.getBoundingClientRect();
+      const info = box('.card-info');
+      const waiting = box('.card-waiting');
+      const status = box('.card-status');
       return {
         overflows: card.scrollWidth > card.clientWidth + 1,
         waitingLines: waitingValue ? waitingRange.getClientRects().length : 0,
-        waitingWhiteSpace: waitingValue ? getComputedStyle(waitingValue).whiteSpace : ''
+        waitingWhiteSpace: waitingValue ? getComputedStyle(waitingValue).whiteSpace : '',
+        routeClipped: route ? route.scrollWidth > route.clientWidth + 1 : false,
+        dateLines: date ? dateRange.getClientRects().length : 0,
+        columnsOverlap: Boolean(
+          info && waiting && status
+          && (info.right - waiting.left > 1 || waiting.right - status.left > 1)
+        )
       };
     }));
     expect(layout.every((card) => !card.overflows)).toBe(true);
     expect(layout.every((card) => card.waitingLines === 1 && card.waitingWhiteSpace === 'nowrap')).toBe(true);
+    expect(layout.every((card) => !card.routeClipped)).toBe(true);
+    expect(layout.every((card) => card.dateLines === 1)).toBe(true);
+    expect(layout.every((card) => !card.columnsOverlap)).toBe(true);
     await expect(page.locator('.waiting-value', { hasText: '回响之地·前滩馆' })).toBeVisible();
 
     const colors = await page.evaluate(() => {

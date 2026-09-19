@@ -900,12 +900,14 @@ if (!nestFirst) {
     }
 
     .card-body {
-      gap: 4px;
+      gap: 8px;
     }
 
     .card-right {
       display: flex;
-      gap: 4px;
+      gap: 8px;
+      min-width: 0;
+      flex-shrink: 1;
     }
 
     .card-train,
@@ -914,12 +916,36 @@ if (!nestFirst) {
       display: none;
     }
 
+    /* 左侧“某地→某地 / 日期”优先占位，右侧候车室与状态让位并按需省略 */
+    .card-info {
+      flex: 1 1 auto;
+      min-width: 76px;
+    }
+
     .card-waiting {
-      min-width: 102px;
+      min-width: 0;
+      max-width: 96px;
+    }
+
+    .waiting-value {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .card-status {
-      min-width: 86px;
+      min-width: 68px;
+    }
+
+    /* 窄屏展开态收紧左右留白，给“路线 + 日期 + 候车室 + 状态”留出一行放下的宽度 */
+    .card-stack.expanded .tour-card {
+      left: 10px;
+      width: calc(100% - 20px);
+    }
+
+    .stack-footer {
+      left: 10px;
+      width: calc(100% - 20px);
     }
 
     .card-route {
@@ -928,7 +954,8 @@ if (!nestFirst) {
     }
 
     .card-meta {
-      white-space: normal;
+      white-space: nowrap;
+      overflow: hidden;
     }
   }
 </style>
