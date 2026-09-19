@@ -76,3 +76,38 @@ test('parks the station screen on the nest once every tour has passed', async ({
   await expect(stack.locator('.tour-card')).toHaveCount(8);
   await expect(stack.locator('.tour-card[data-tour-id="nest"]')).toBeVisible();
 });
+
+test('keeps the train columns aligned and unclipped at every width', async ({ page }) => {
+  await openAt(page, '2026-09-19T12:00:00+08:00');
+
+  const stack = page.locator('#card-stack');
+  for (const width of [320, 375, 520, 521, 600, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await stack.click();
+    await expect(stack).toHaveClass(/expanded/);
+    // 展开动效落定后再量，避免量到动画中途的宽度
+    await expect(stack).toHaveClass(/rebounding/);
+    await expect(stack).not.toHaveClass(/rebounding/);
+
+    const cards = await page.locator('.tour-card:not(.nest-card)').evaluateAll((nodes) => nodes.map((node) => {
+      const column = (selector: string) => {
+        const rect = node.querySelector(selector)?.getBoundingClientRect();
+        return rect ? `${Math.round(rect.left)}/${Math.round(rect.width)}` : '';
+      };
+      const route = node.querySelector('.card-route');
+      const waiting = node.querySelector('.waiting-value');
+      return {
+        columns: `${column('.card-train')}|${column('.card-waiting')}|${column('.card-status')}`,
+        clipped: Boolean(route && route.scrollWidth > route.clientWidth + 1)
+          || Boolean(waiting && waiting.scrollWidth > waiting.clientWidth + 1)
+      };
+    }));
+
+    expect(cards.length).toBeGreaterThan(1);
+    expect(new Set(cards.map((card) => card.columns)).size).toBe(1);
+    expect(cards.every((card) => !card.clipped)).toBe(true);
+
+    await page.keyboard.press('Escape');
+    await expect(stack).not.toHaveClass(/expanded/);
+  }
+});

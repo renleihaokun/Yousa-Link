@@ -692,7 +692,7 @@ if (!nestFirst) {
   }
 
   .card-waiting {
-    min-width: 92px;
+    width: 100px;
   }
 
   .card-status {
@@ -713,6 +713,9 @@ if (!nestFirst) {
     color: #6b7280;
     font-weight: 600;
     white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .card-route {
@@ -890,7 +893,22 @@ if (!nestFirst) {
     }
 
     .card-waiting {
-      min-width: 68px;
+      width: 92px;
+    }
+
+    /* 窄平板/横屏手机：场馆名与路线重复，让位给路线与日期 */
+    .card-venue-meta {
+      display: none;
+    }
+
+    .card-stack.expanded .tour-card {
+      left: 20px;
+      width: calc(100% - 40px);
+    }
+
+    .card-stack.expanded .stack-footer {
+      left: 20px;
+      width: calc(100% - 40px);
     }
   }
 
@@ -923,15 +941,8 @@ if (!nestFirst) {
     }
 
     .card-waiting {
-      flex: 0 0 90px;
+      width: 90px;
       min-width: 0;
-      max-width: none;
-    }
-
-    .waiting-value {
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     .card-status {
