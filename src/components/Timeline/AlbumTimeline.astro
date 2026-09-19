@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import albumsData from '../../data/albums.json';
+import { PEEK_DURATION_MS } from '../../domain/timeline-hint';
 
 const { albums } = albumsData;
 type AlbumAsset = { src: string; sources: Array<{ src: string; width: number }> };
@@ -12,7 +13,11 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
 
 <div class="timeline-end-guard" id="timeline-end-guard" aria-hidden="true"></div>
 
-<div class="timeline-section" id="timeline-section">
+<div
+  class="timeline-section"
+  id="timeline-section"
+  style={`--timeline-peek-duration: ${PEEK_DURATION_MS}ms;`}
+>
   <div class="timeline-handle">
     <div class="handle-bar"></div>
   </div>
@@ -48,13 +53,18 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
 
 <script>
   import { clearSceneBlur, setSceneBlur } from '../../scripts/scene-blur-controller';
-  import { shouldPeekTimeline } from '../../domain/timeline-hint';
+  import {
+    PEEK_DURATION_MS,
+    PEEK_START_DELAY_MS,
+    shouldPeekTimeline
+  } from '../../domain/timeline-hint';
 
   const PEEK_CLASS = 'timeline-peek';
   const PEEK_MAX_WAIT_MS = 8_000;
   const timelineSection = document.getElementById('timeline-section');
   let blurFrame = 0;
   let peekActive = false;
+  let peekTimer = 0;
 
   function updateTimelineDepth() {
     blurFrame = 0;
@@ -100,42 +110,54 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
   queueTimelineDepthUpdate();
 
   function timelinePeekAllowed() {
-    return shouldPeekTimeline({
+    const state = {
       reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       scrollY: window.scrollY,
       timelineActive: document.documentElement.classList.contains('timeline-active'),
       panelOpen: Boolean(document.body.dataset.openPanel)
-    });
+    };
+    return shouldPeekTimeline(state);
   }
 
   function teardownTimelinePeek() {
     peekActive = false;
+    window.clearTimeout(peekTimer);
+    peekTimer = 0;
     timelineSection?.classList.remove(PEEK_CLASS);
     timelineSection?.removeEventListener('animationend', handleTimelinePeekEnd);
-    window.removeEventListener('scroll', stopTimelinePeek);
-    window.removeEventListener('wheel', stopTimelinePeek);
-    window.removeEventListener('touchstart', stopTimelinePeek);
+    window.removeEventListener('scroll', cancelTimelinePeek);
+    window.removeEventListener('wheel', cancelTimelinePeek);
+    window.removeEventListener('touchstart', cancelTimelinePeek);
   }
 
-  function stopTimelinePeek() {
+  function stopTimelinePeek(state: 'done' | 'cancelled' = 'done') {
     if (!peekActive) return;
     teardownTimelinePeek();
+    if (timelineSection) timelineSection.dataset.peekState = state;
     queueTimelineDepthUpdate();
   }
 
+  function cancelTimelinePeek() {
+    stopTimelinePeek('cancelled');
+  }
+
   function handleTimelinePeekEnd(event: AnimationEvent) {
-    if (event.target === timelineSection) stopTimelinePeek();
+    if (event.target !== timelineSection) return;
+    if (timelineSection) timelineSection.dataset.peekElapsed = event.elapsedTime.toFixed(2);
+    stopTimelinePeek();
   }
 
   function startTimelinePeek() {
     if (peekActive || !timelineSection || !timelinePeekAllowed()) return;
     peekActive = true;
     timelineSection.classList.add(PEEK_CLASS);
+    timelineSection.dataset.peekState = 'running';
+    timelineSection.dataset.peekStart = String(Math.round(performance.now()));
     timelineSection.addEventListener('animationend', handleTimelinePeekEnd);
     // 用户一动页面就收手，免得弹跳和滚动打架
-    window.addEventListener('scroll', stopTimelinePeek, { passive: true });
-    window.addEventListener('wheel', stopTimelinePeek, { passive: true });
-    window.addEventListener('touchstart', stopTimelinePeek, { passive: true });
+    window.addEventListener('scroll', cancelTimelinePeek, { passive: true });
+    window.addEventListener('wheel', cancelTimelinePeek, { passive: true });
+    window.addEventListener('touchstart', cancelTimelinePeek, { passive: true });
   }
 
   // 首访提示浮层会挡住整个页面，等它关掉再弹
@@ -165,7 +187,11 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
   }
 
   function scheduleTimelinePeek() {
-    whenEntryNoticeClosed(startTimelinePeek);
+    whenEntryNoticeClosed(() => {
+      // 页面刚就绪时地图、表情包还在陆续到位，先等一会儿再提示
+      if (timelineSection) timelineSection.dataset.peekReady = String(Math.round(performance.now()));
+      peekTimer = window.setTimeout(startTimelinePeek, PEEK_START_DELAY_MS);
+    });
   }
 
   if (document.readyState === 'complete') scheduleTimelinePeek();
@@ -259,9 +285,9 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
     background: rgba(255, 255, 255, 0.3);
   }
 
-  /* 加载完成后弹两下露出手柄，提示下方还有内容 */
+  /* 加载完成后轻轻弹两下露出手柄，提示下方还有内容 */
   .timeline-section.timeline-peek {
-    animation: timeline-peek 1.35s var(--ease-standard);
+    animation: timeline-peek var(--timeline-peek-duration, 3s) linear;
   }
 
   .timeline-section.timeline-peek .handle-bar {
@@ -271,22 +297,28 @@ const albumAssets = new Map(albumManifest.items.map((item) => [item.src, item.so
   @keyframes timeline-peek {
     0% {
       transform: translateY(0);
+      /* 起手慢、到位轻 */
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    18% {
-      transform: translateY(-60px);
+    22% {
+      transform: translateY(-58px);
+      animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
     }
 
-    38% {
-      transform: translateY(-8px);
+    48% {
+      transform: translateY(-10px);
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    58% {
-      transform: translateY(-46px);
+    68% {
+      transform: translateY(-38px);
+      animation-timing-function: cubic-bezier(0.45, 0.05, 0.55, 0.95);
     }
 
-    78% {
-      transform: translateY(-6px);
+    86% {
+      transform: translateY(-5px);
+      animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
     }
 
     100% {

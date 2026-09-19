@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { PEEK_DURATION_MS, PEEK_START_DELAY_MS } from '../../src/domain/timeline-hint';
 
 test.beforeEach(async ({ page }) => {
   await page.route('https://ip.nemui.cn/**', (route) => route.fulfill({
@@ -20,58 +21,72 @@ function timelineTop(page: Page) {
   return page.locator('#timeline-section').evaluate((element) => element.getBoundingClientRect().top);
 }
 
-/** 从页面一开始就逐帧记录时间线的顶部位置，避免漏掉只有几百毫秒的弹跳窗口 */
-async function recordTimelineTops(page: Page) {
-  await page.addInitScript(() => {
-    const samples: Array<{ top: number; scrollY: number }> = [];
-    (window as unknown as { __timelineTops: Array<{ top: number; scrollY: number }> }).__timelineTops = samples;
-    const record = () => {
-      // 样式表生效前页面还是无样式布局，这时候的采样不算数
-      const section = document.getElementById('timeline-section');
-      if (section && document.readyState !== 'loading') {
-        samples.push({ top: section.getBoundingClientRect().top, scrollY: window.scrollY });
-      }
-      requestAnimationFrame(record);
-    };
-    requestAnimationFrame(record);
-  });
-}
-
-function lowestTimelineTop(page: Page) {
-  return page.evaluate(() => {
-    const samples = (window as unknown as { __timelineTops?: Array<{ top: number; scrollY: number }> }).__timelineTops ?? [];
-    return samples.length ? Math.min(...samples.map((sample) => sample.top)) : Number.POSITIVE_INFINITY;
-  });
-}
-
 test('peeks the album timeline after the page loads and settles back down', async ({ page }) => {
-  await recordTimelineTops(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('load');
 
   const section = page.locator('#timeline-section');
   const viewportHeight = await page.evaluate(() => window.innerHeight);
 
-  await expect(section).toHaveClass(/timeline-peek/);
-  await expect(section).not.toHaveClass(/timeline-peek/);
+  // 页面就绪后要先静一会儿，不能一进来就动
+  await page.waitForTimeout(500);
+  await expect(section).not.toHaveAttribute('data-peek-state', 'running');
 
-  // 弹跳期间确实把手柄露进了视口（峰值约 -60px）
-  expect(await lowestTimelineTop(page)).toBeLessThan(viewportHeight - 30);
+  // 并发跑时 load 本身可能被拖很久，弹跳窗口给足超时
+  await expect(section).toHaveAttribute('data-peek-state', 'done', { timeout: 20_000 });
+
+  const peek = await section.evaluate((element) => ({
+    ready: Number(element.dataset.peekReady ?? 0),
+    start: Number(element.dataset.peekStart ?? 0),
+    elapsed: Number(element.dataset.peekElapsed ?? 0)
+  }));
+  // 等过延迟才开始，而且动画整整跑完（没被截断、也没有瞬间结束）
+  // 时间戳都取自页面时钟，避免测试侧 CDP 往返被拖慢而误判
+  expect(peek.start - peek.ready).toBeGreaterThanOrEqual(PEEK_START_DELAY_MS - 150);
+  expect(peek.elapsed).toBeGreaterThan(PEEK_DURATION_MS / 1000 - 0.4);
+
+  // 结束后回到原位，提示标签摘掉，也没有误触发地图虚化
+  await expect(section).not.toHaveClass(/timeline-peek/);
   expect(await timelineTop(page)).toBeGreaterThanOrEqual(viewportHeight - 8);
   await expect(page.locator('html')).not.toHaveClass(/timeline-active/);
+
+  // 关键帧幅度：至少抬起 40px，保证手柄真的露出来
+  const peakOffset = await page.evaluate(() => {
+    let peak = 0;
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules: CSSRuleList | undefined;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of Array.from(rules ?? [])) {
+        if (!(rule instanceof CSSKeyframesRule) || !rule.name.includes('timeline-peek')) continue;
+        for (const frame of Array.from(rule.cssRules)) {
+          const match = /translateY\((-?[\d.]+)px\)/.exec((frame as CSSKeyframeRule).style.transform);
+          if (match) peak = Math.max(peak, Math.abs(Number(match[1])));
+        }
+      }
+    }
+    return Math.round(peak);
+  });
+  expect(peakOffset).toBeGreaterThanOrEqual(40);
 });
 
 test.describe('prefers-reduced-motion: reduce', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
   test('skips the peek', async ({ page }) => {
-    await recordTimelineTops(page);
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1_500);
+    await page.waitForLoadState('load');
     // 先确认模拟确实生效，免得选项失效后这条用例变成空跑
     expect(await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+
+    await page.waitForTimeout(PEEK_START_DELAY_MS + PEEK_DURATION_MS + 800);
+    const section = page.locator('#timeline-section');
+    await expect(section).not.toHaveAttribute('data-peek-state', /.*/);
     const viewportHeight = await page.evaluate(() => window.innerHeight);
-    await expect(page.locator('#timeline-section')).not.toHaveClass(/timeline-peek/);
-    expect(await lowestTimelineTop(page)).toBeGreaterThanOrEqual(viewportHeight - 8);
+    expect(await timelineTop(page)).toBeGreaterThanOrEqual(viewportHeight - 8);
   });
 });
 
