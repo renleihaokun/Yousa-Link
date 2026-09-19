@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settleBannerAnimation } from './helpers';
 
 test.use({ timezoneId: 'Asia/Shanghai' });
 
@@ -86,8 +87,7 @@ test('keeps the train columns aligned and unclipped at every width', async ({ pa
     await stack.click();
     await expect(stack).toHaveClass(/expanded/);
     // 展开动效落定后再量，避免量到动画中途的宽度
-    await expect(stack).toHaveClass(/rebounding/);
-    await expect(stack).not.toHaveClass(/rebounding/);
+    await settleBannerAnimation(page);
 
     const cards = await page.locator('.tour-card:not(.nest-card)').evaluateAll((nodes) => nodes.map((node) => {
       const column = (selector: string) => {

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settleBannerAnimation } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.route('https://ip.nemui.cn/**', (route) => route.fulfill({
@@ -158,8 +159,7 @@ test('keeps the mobile train details compact and on one line', async ({ page }) 
     await stack.click();
     await expect(stack).toHaveClass(/expanded/);
     // 卡片宽高是动画出来的，量布局前先等展开动效落定
-    await expect(stack).toHaveClass(/rebounding/);
-    await expect(stack).not.toHaveClass(/rebounding/);
+    await settleBannerAnimation(page);
 
     await expect(page.locator('.card-train').first()).toBeHidden();
     await expect(page.locator('.card-venue-meta').first()).toBeHidden();
