@@ -41,6 +41,13 @@ test('shows each first-visit notice once and keeps entry values on a whitelist',
   await expect(notice).toBeVisible();
   await expect(notice).toHaveText('你是通过二维码进入的，建议换用支持 NFC 的手机碰一碰访问');
 
+  // 进场动画从 translateY(18px) scale(0.95) 开始，等落定再量位置，否则垂直方向会差 18px
+  await expect.poll(async () => {
+    const box = await notice.boundingBox();
+    const height = await page.evaluate(() => window.innerHeight);
+    return Math.abs((box?.y ?? 0) + (box?.height ?? 0) / 2 - height / 2);
+  }).toBeLessThan(2);
+
   const [overlayBox, noticeBox, viewport] = await Promise.all([
     overlay.boundingBox(),
     notice.boundingBox(),
@@ -52,7 +59,8 @@ test('shows each first-visit notice once and keeps entry values on a whitelist',
   expect(Math.abs((noticeBox?.y ?? 0) + (noticeBox?.height ?? 0) / 2 - viewport.height / 2)).toBeLessThan(2);
   expect(await overlay.evaluate((element) => {
     const styles = getComputedStyle(element);
-    return styles.backdropFilter || (styles as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter;
+    const prefixed = (styles as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter;
+    return `${styles.backdropFilter} ${prefixed ?? ''}`;
   })).toContain('blur(');
 
   await notice.click();
@@ -253,7 +261,8 @@ test('does not block a cold game open on the optional sprite', async ({ page }) 
   await page.locator('#game-tab').click();
   await expect(panel).toHaveClass(/expanded/);
   await expect.poll(() => canvasHasContent(page), { timeout: 2_500 }).toBe(true);
-  await expect(page.locator('#hero-chicken')).toHaveAttribute('src', '/images/game/yousa-chicken.png');
+  // 精灵图是用 img.src 赋值的，浏览器会把属性反射成绝对地址
+  await expect(page.locator('#hero-chicken')).toHaveAttribute('src', /\/images\/game\/yousa-chicken\.png$/);
 
   const easterEggResponse = page.waitForResponse((response) => response.url().endsWith('/images/game/yousa-WTF.png'));
   releaseEasterEgg();
@@ -263,7 +272,7 @@ test('does not block a cold game open on the optional sprite', async ({ page }) 
 
   await page.locator('#game-tab').click();
   await expect(panel).toHaveClass(/expanded/);
-  await expect(page.locator('#hero-chicken')).toHaveAttribute('src', '/images/game/yousa-WTF.png');
+  await expect(page.locator('#hero-chicken')).toHaveAttribute('src', /\/images\/game\/yousa-WTF\.png$/);
   await expect.poll(() => canvasHasContent(page)).toBe(true);
   await page.locator('#close-tab').click();
   await expect(panel).not.toHaveClass(/expanded/);
