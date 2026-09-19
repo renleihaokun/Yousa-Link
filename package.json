@@ -19,20 +19,20 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "astro": "^7.2.10",
+    "astro": "^7.3.2",
     "echarts": "^6.1.0",
     "lucide-astro": "^0.556.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
-    "@types/node": "^26.4.1",
-    "happy-dom": "^20.13.1",
-    "pinyin-pro": "3.29.3",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.1",
+    "happy-dom": "^20.14.5",
+    "pinyin-pro": "3.29.4",
     "polygon-clipping": "^0.15.7",
     "province-city-china": "8.5.8",
     "sharp": "^0.35.4",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.1",
     "world-cities-json": "1.0.1"
   }
 }
