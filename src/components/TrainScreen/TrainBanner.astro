@@ -1,35 +1,31 @@
 ---
-import { getTourSchedule } from '../../domain/tours';
+import { getBannerOrder, NEST_ITEM_ID, type BannerOrderItem } from '../../domain/tours';
+import {
+  formatCardStyle,
+  getCardStyleVars,
+  getExpandedHeight,
+  getStackedHeight,
+  isCardHidden
+} from './banner-layout';
 
-const today = new Date();
-today.setHours(0, 0, 0, 0);
-const todayMs = today.getTime();
-const sorted = getTourSchedule(today);
+// 构建期先排一版，保证无 JS 时也能正常显示；浏览器打开时会按当天日期再排一次。
+const { items, nestFirst } = getBannerOrder(new Date());
+const COUNT = items.length;
+const stackedH = getStackedHeight(COUNT);
+const expandedH = getExpandedHeight(COUNT);
 
-const upcomingIdx = sorted.findIndex(t => t.effectiveDate.getTime() >= todayMs);
-const noUpcoming = upcomingIdx === -1;
-const startIdx = noUpcoming ? 0 : upcomingIdx;
+const nestItem: BannerOrderItem = { id: NEST_ITEM_ID, isNest: true, tour: null };
+const renderCards = items.map((item, slot) => ({
+  item,
+  slot,
+  hidden: isCardHidden(slot),
+  detached: false
+}));
 
-const hasTours = sorted.length > 0;
-const displayItems = !hasTours
-  ? [{ id: 'nest', from: '🪹', to: '鸟窝', dateDisplay: '暂无巡演', venue: '', isNest: true }]
-  : noUpcoming
-    ? [{ id: 'nest', from: '🪹', to: '鸟窝', dateDisplay: '暂无巡演', venue: '', isNest: true }, ...sorted]
-    : [...sorted.slice(startIdx), ...sorted.slice(0, startIdx)];
-
-const MAX_VISIBLE = 3;
-const OFFSET = 12;
-const W_STEP = 0.08;
-const B_STEP = 0.3;
-const CARD_H = 82;
-const GAP = 14;
-const HEADER_H = 52;
-const FOOTER_H = 48;
-const COUNT = displayItems.length;
-const PAD = 14;
-
-const stackedH = CARD_H + (Math.min(COUNT, MAX_VISIBLE) - 1) * OFFSET + PAD;
-const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD * 2;
+// 鸟窝卡片始终存在于 DOM 中，全部场次结束后由前端把它顶到最前面。
+if (!nestFirst) {
+  renderCards.push({ item: nestItem, slot: 0, hidden: true, detached: true });
+}
 ---
 
 <div class="train-screen" id="train-screen">
@@ -38,81 +34,64 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     id="card-stack"
     style={`--stacked-h: ${stackedH}px; --expanded-h: ${expandedH}px;`}
   >
-    {displayItems.map((item, i) => {
-      const si = Math.min(i, MAX_VISIBLE - 1);
-      const hidden = i >= MAX_VISIBLE;
-      const expandDelay = si * 42;
-      const collapseDelay = Math.max(0, MAX_VISIBLE - 1 - si) * 42;
-
-      return (
-        <div
-          class={`tour-card${hidden ? ' stack-hidden' : ''}${item.isNest ? ' nest-card' : ''}`}
-          style={`
-            --stack-top: ${si * OFFSET}px;
-            --stack-left: ${si * 4}%;
-            --stack-width: calc(100% - ${si * (W_STEP * 100)}%);
-            --stack-bright: ${Math.max(0.2, 1 - si * B_STEP)};
-            --stack-z: ${COUNT - i};
-            --exp-top: ${HEADER_H + i * (CARD_H + GAP)}px;
-            --exp-left: 30px;
-            --exp-width: calc(100% - 60px);
-            --exp-bright: 1;
-            --exp-z: ${COUNT - i};
-            --expand-delay: ${expandDelay}ms;
-            --collapse-delay: ${collapseDelay}ms;
-          `}
-        >
-          <div class="card-body">
-            {item.isNest ? (
-              <div class="card-nest">
-                <span class="nest-icon">🪹</span>
-                <span class="nest-text">鸟窝</span>
+    {renderCards.map((card) => (
+      <div
+        class={`tour-card${card.hidden ? ' stack-hidden' : ''}${card.item.isNest ? ' nest-card' : ''}`}
+        data-tour-id={card.item.id}
+        data-stack-slot={card.detached ? '-1' : card.slot}
+        {...(card.detached ? { hidden: true } : {})}
+        style={formatCardStyle(getCardStyleVars(card.slot, COUNT))}
+      >
+        <div class="card-body">
+          {card.item.isNest ? (
+            <div class="card-nest">
+              <span class="nest-icon">🪹</span>
+              <span class="nest-text">鸟窝</span>
+            </div>
+          ) : (
+            <>
+              <div class="card-info">
+                <div class="card-route">
+                  <span class="card-from">{card.item.tour.from}</span>
+                  <span class="card-arrow">→</span>
+                  <span class="card-to">{card.item.tour.to}</span>
+                </div>
+                <div class="card-meta">
+                  <span class="card-date">{card.item.tour.dateDisplay}</span>
+                  <span
+                    class="mobile-status"
+                    class:list={{ 'is-past': card.item.tour.isPast }}
+                    data-tour-date={card.item.tour.date}
+                    data-tour-delay={card.item.tour.delay ?? 0}
+                  >{card.item.tour.daysText}</span>
+                  {card.item.tour.venue && (
+                    <span class="card-venue-meta"><span class="meta-sep">·</span><span class="card-venue">{card.item.tour.venue}</span></span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <>
-                <div class="card-info">
-                  <div class="card-route">
-                    <span class="card-from">{item.from}</span>
-                    <span class="card-arrow">→</span>
-                    <span class="card-to">{item.to}</span>
-                  </div>
-                  <div class="card-meta">
-                    <span class="card-date">{item.dateDisplay}</span>
-                    <span
-                      class="mobile-status"
-                      class:list={{ 'is-past': item.isPast }}
-                      data-tour-date={item.date}
-                      data-tour-delay={item.delay ?? 0}
-                    >{item.daysText}</span>
-                    {item.venue && (
-                      <span class="card-venue-meta"><span class="meta-sep">·</span><span class="card-venue">{item.venue}</span></span>
-                    )}
-                  </div>
+              <div class="card-right">
+                <div class="card-train">
+                  <span class="train-label">车次</span>
+                  <span class="train-value">{card.item.tour.trainNumber || '鸢148'}</span>
                 </div>
-                <div class="card-right">
-                  <div class="card-train">
-                    <span class="train-label">车次</span>
-                    <span class="train-value">{item.trainNumber || '鸢148'}</span>
-                  </div>
-                  <div class="card-waiting">
-                    <span class="waiting-label">候车室</span>
-                    <span class="waiting-value">{item.waitingRoom || '待定'}</span>
-                  </div>
-                  <div class="card-status" class:list={{ 'is-past': item.isPast }}>
-                    <span class="status-label">{item.isPast ? '实际' : '预计'}</span>
-                    <span
-                      class="status-value"
-                      data-tour-date={item.date}
-                     data-tour-delay={item.delay ?? 0}
-                    >{item.daysText}{item.delayText ? `·${item.delayText}` : ''}</span>
-                  </div>
+                <div class="card-waiting">
+                  <span class="waiting-label">候车室</span>
+                  <span class="waiting-value">{card.item.tour.waitingRoom || '待定'}</span>
                 </div>
-              </>
-            )}
-          </div>
+                <div class="card-status" class:list={{ 'is-past': card.item.tour.isPast }}>
+                  <span class="status-label">{card.item.tour.isPast ? '实际' : '预计'}</span>
+                  <span
+                    class="status-value"
+                    data-tour-date={card.item.tour.date}
+                    data-tour-delay={card.item.tour.delay ?? 0}
+                  >{card.item.tour.daysText}{card.item.tour.delayText ? `·${card.item.tour.delayText}` : ''}</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-      );
-    })}
+      </div>
+    ))}
 
     <div class="stack-footer" id="stack-footer">
       <div class="footer-row">
@@ -138,11 +117,80 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
 <script>
   import { closePanel, onPanelClose, openPanel } from '../../scripts/panel-controller';
+  import { getBannerOrder, NEST_ITEM_ID, type TourScheduleItem } from '../../domain/tours';
+  import {
+    getCardStyleVars,
+    getExpandedHeight,
+    getStackedHeight,
+    isCardHidden
+  } from './banner-layout';
 
   const stack = document.getElementById('card-stack');
   const footer = document.getElementById('stack-footer');
 
   if (!stack) throw new Error('card-stack not found');
+
+  const cardsById = new Map<string, HTMLElement>();
+  stack.querySelectorAll<HTMLElement>('.tour-card[data-tour-id]').forEach((card) => {
+    const id = card.dataset.tourId;
+    if (id && !cardsById.has(id)) cardsById.set(id, card);
+  });
+
+  function applyTourSchedule(card: HTMLElement, tour: TourScheduleItem) {
+    const statusText = tour.delayText ? `${tour.daysText}·${tour.delayText}` : tour.daysText;
+    card.querySelectorAll<HTMLElement>('.mobile-status, .status-value').forEach((element) => {
+      element.textContent = element.classList.contains('status-value') ? statusText : tour.daysText;
+    });
+    card.querySelectorAll<HTMLElement>('.card-status, .mobile-status').forEach((element) => {
+      element.classList.toggle('is-past', tour.isPast);
+    });
+    const statusLabel = card.querySelector<HTMLElement>('.status-label');
+    if (statusLabel) statusLabel.textContent = tour.isPast ? '实际' : '预计';
+  }
+
+  // “下一站”按打开当天的日期重排，避免静态产物一直停在构建那天。
+  function syncTrainBanner(now = new Date()) {
+    const { items } = getBannerOrder(now);
+    const count = items.length;
+    const ordered: HTMLElement[] = [];
+
+    items.forEach((item, slot) => {
+      const card = cardsById.get(item.id);
+      if (!card) return;
+      ordered.push(card);
+      card.hidden = false;
+      card.dataset.stackSlot = String(slot);
+      card.classList.toggle('stack-hidden', isCardHidden(slot));
+      const vars = getCardStyleVars(slot, count);
+      for (const [name, value] of Object.entries(vars)) card.style.setProperty(name, value);
+      if (!item.isNest) applyTourSchedule(card, item.tour);
+    });
+
+    const nestCard = cardsById.get(NEST_ITEM_ID);
+    if (nestCard && !ordered.includes(nestCard)) {
+      // 还有巡演时鸟窝卡片藏在末尾，全部场次结束后再被顶到最前面。
+      nestCard.hidden = true;
+      nestCard.dataset.stackSlot = '-1';
+      nestCard.classList.add('stack-hidden');
+      ordered.push(nestCard);
+    }
+
+    for (const card of ordered) {
+      if (footer && footer.parentElement === stack) stack.insertBefore(card, footer);
+      else stack.append(card);
+    }
+
+    stack.style.setProperty('--stacked-h', `${getStackedHeight(count)}px`);
+    stack.style.setProperty('--expanded-h', `${getExpandedHeight(count)}px`);
+  }
+
+  stack.classList.add('is-syncing');
+  try {
+    syncTrainBanner();
+  } finally {
+    stack.classList.remove('is-syncing');
+    stack.classList.add('is-ready');
+  }
 
   const TOP_TOLERANCE = 2;
   const SCROLL_END_TOLERANCE = 2;
@@ -446,24 +494,6 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
 
   onPanelClose('train', collapse);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  document.querySelectorAll<HTMLElement>('[data-tour-date]').forEach((element) => {
-    const rawDate = element.dataset.tourDate;
-    if (!rawDate) return;
-    const effectiveDate = new Date(rawDate);
-    const delay = Number(element.dataset.tourDelay || 0);
-    effectiveDate.setDate(effectiveDate.getDate() + delay);
-    effectiveDate.setHours(0, 0, 0, 0);
-    const days = Math.round((effectiveDate.getTime() - today.getTime()) / 86400000);
-    const daysText = days > 0 ? `${days}天后` : days < 0 ? `${Math.abs(days)}天前` : '今天';
-    const delayText = delay > 0 ? `晚点${delay}天` : delay < 0 ? `提前${Math.abs(delay)}天` : '正点';
-    element.classList.toggle('is-past', days < 0);
-    element.textContent = element.classList.contains('status-value')
-      ? `${daysText}·${delayText}`
-      : daysText;
-  });
-
   window.__collapseTrainScreen = collapse;
 </script>
 
@@ -508,6 +538,15 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     display: none;
   }
 
+  /* 卡片顺序由前端按当天日期重排，同步完成前先藏住，免得闪一帧过期场次。 */
+  :global(html.has-js) .card-stack:not(.is-ready) .tour-card {
+    visibility: hidden;
+  }
+
+  :global(html.has-js) .card-stack.is-syncing .tour-card {
+    transition: none;
+  }
+
   .tour-card {
     position: absolute;
     min-height: 82px;
@@ -535,7 +574,7 @@ const expandedH = HEADER_H + COUNT * CARD_H + (COUNT - 1) * GAP + FOOTER_H + PAD
     z-index: var(--stack-z);
   }
 
-  .card-stack:not(.expanded) .tour-card:nth-child(4) {
+  .card-stack:not(.expanded) .tour-card[data-stack-slot='3'] {
     filter: brightness(var(--stack-bright)) blur(0.5px);
     border: 1px solid rgba(255, 105, 180, 0.35);
   }

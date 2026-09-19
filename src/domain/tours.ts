@@ -29,6 +29,17 @@ export type TourCity = {
   value: Coordinates;
 };
 
+export const NEST_ITEM_ID = 'nest';
+
+export type BannerOrderItem =
+  | { id: typeof NEST_ITEM_ID; isNest: true; tour: null }
+  | { id: string; isNest: false; tour: TourScheduleItem };
+
+export type BannerOrder = {
+  items: BannerOrderItem[];
+  nestFirst: boolean;
+};
+
 const TOURS = toursData.tours as Tour[];
 const MS_PER_DAY = 86_400_000;
 
@@ -68,6 +79,23 @@ export function getTourSchedule(now = new Date()): TourScheduleItem[] {
     const delayText = !tour.date ? '' : delay > 0 ? `晚点${delay}天` : delay < 0 ? `提前${Math.abs(delay)}天` : '正点';
     return { ...tour, dateObj, effectiveDate, daysText, delayText, isPast: days < 0 };
   }).sort((first, second) => first.effectiveDate.getTime() - second.effectiveDate.getTime());
+}
+
+export function getBannerOrder(now = new Date()): BannerOrder {
+  const nest: BannerOrderItem = { id: NEST_ITEM_ID, isNest: true, tour: null };
+  const sorted = getTourSchedule(now);
+  if (sorted.length === 0) return { items: [nest], nestFirst: true };
+
+  const today = startOfLocalDay(now).getTime();
+  const upcomingIdx = sorted.findIndex((tour) => tour.effectiveDate.getTime() >= today);
+  const ordered = upcomingIdx === -1
+    ? sorted
+    : [...sorted.slice(upcomingIdx), ...sorted.slice(0, upcomingIdx)];
+  const items: BannerOrderItem[] = ordered.map((tour) => ({ id: tour.id, isNest: false, tour }));
+
+  return upcomingIdx === -1
+    ? { items: [nest, ...items], nestFirst: true }
+    : { items, nestFirst: false };
 }
 
 export function getTourCities(): TourCity[] {

@@ -156,7 +156,7 @@ test('keeps the mobile train details compact and on one line', async ({ page }) 
     await expect(page.locator('.card-waiting').first()).toBeVisible();
     await expect(page.locator('.card-status').first()).toBeVisible();
 
-    const layout = await page.locator('.tour-card').evaluateAll((cards) => cards.map((card) => {
+    const layout = await page.locator('.tour-card:not(.nest-card)').evaluateAll((cards) => cards.map((card) => {
       const waitingValue = card.querySelector('.waiting-value');
       const waitingRange = document.createRange();
       if (waitingValue) waitingRange.selectNodeContents(waitingValue);
