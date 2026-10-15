@@ -150,6 +150,9 @@ test('keeps panel state transitions exclusive', async ({ page }) => {
 });
 
 test('keeps the mobile train details compact and on one line', async ({ page }) => {
+  // 这条用例要同时量到「已过」和「未到」两种卡片状态，所以把页面时钟固定在最后一场巡演的前一天：
+  // 否则真实日期走过行程表末尾之后 upcoming 会变空，断言就跟着日期一起烂掉
+  await page.clock.setFixedTime(new Date('2026-10-02T12:00:00+08:00'));
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await dismissEntryNotice(page);
 
