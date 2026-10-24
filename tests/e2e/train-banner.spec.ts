@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
     contentType: 'application/json',
     body: JSON.stringify({ ip: '127.0.0.1', location: { city: 'beijing', region: 'beijing' } })
   }));
-  await page.route('https://meting.mysqil.com/**', (route) => route.fulfill({
+  await page.route(/https:\/\/api\.(injahow\.cn|qijieya\.cn)\/meting\/.*/, (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify([{ name: 'Test song', author: 'Test artist', url: 'https://example.com/song.mp3', pic: '' }])

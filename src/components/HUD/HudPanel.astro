@@ -45,6 +45,7 @@ import { Disc3, Pause, Play, SkipBack, SkipForward } from 'lucide-astro';
   import { loadPlaylist, type Song } from '../../services/playlist-service';
 
   const cover = document.getElementById('song-cover') as HTMLImageElement | null;
+  const panel = document.querySelector<HTMLElement>('.hud-panel');
   const title = document.getElementById('song-title');
   const author = document.getElementById('song-author');
   const playButton = document.getElementById('play-btn') as HTMLButtonElement | null;
@@ -177,8 +178,8 @@ import { Disc3, Pause, Play, SkipBack, SkipForward } from 'lucide-astro';
       updateSongDisplay();
       setControlState(false);
     } catch {
-      if (title) title.textContent = '播放器加载失败';
-      if (author) author.textContent = '请稍后再试';
+      // 歌单所有源都不可用时直接收起播放器，不要留一块"加载失败"的死 UI
+      panel?.setAttribute('hidden', '');
       setControlState(true);
       if (progress) progress.disabled = true;
     }
@@ -225,6 +226,10 @@ import { Disc3, Pause, Play, SkipBack, SkipForward } from 'lucide-astro';
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(20px) saturate(145%);
     -webkit-backdrop-filter: blur(20px) saturate(145%);
+  }
+
+  .hud-panel[hidden] {
+    display: none;
   }
 
   .player-row {

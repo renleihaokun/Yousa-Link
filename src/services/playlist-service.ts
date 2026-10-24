@@ -13,9 +13,15 @@ type PlaylistCache = {
   songs: Song[];
 };
 
-const PLAYLIST_URL = 'https://meting.mysqil.com/api?server=netease&type=playlist&id=69909382';
+// 公益 Meting 实例，按顺序降级：任一可用即可，全部失败才抛错
+const PLAYLIST_SOURCES = [
+  'https://api.injahow.cn/meting/?server=netease&type=playlist&id=69909382',
+  'https://api.qijieya.cn/meting/?server=netease&type=playlist&id=69909382'
+];
 const CACHE_KEY = 'yousa-playlist-v1';
 const CACHE_TTL = 30 * 60 * 1000;
+// 公益实例冷启动最慢要 8s 以上，超时放宽到 15s
+const REQUEST_TIMEOUT = 15000;
 
 function parsePlaylist(value: unknown) {
   const raw = Array.isArray(value)
@@ -44,8 +50,17 @@ export async function loadPlaylist() {
     return cached.songs;
   }
 
-  const songs = parsePlaylist(await fetchJson(PLAYLIST_URL, 8000));
-  if (songs.length === 0) throw new Error('Playlist is empty');
-  writeJson('session', CACHE_KEY, { expiresAt: Date.now() + CACHE_TTL, songs });
-  return songs;
+  let lastError: unknown;
+  for (const source of PLAYLIST_SOURCES) {
+    try {
+      const songs = parsePlaylist(await fetchJson(source, REQUEST_TIMEOUT));
+      if (songs.length === 0) throw new Error('Playlist is empty');
+      writeJson('session', CACHE_KEY, { expiresAt: Date.now() + CACHE_TTL, songs });
+      return songs;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Playlist is empty');
 }

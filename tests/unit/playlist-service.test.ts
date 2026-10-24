@@ -36,4 +36,15 @@ describe('playlist service', () => {
     const { loadPlaylist } = await import('../../src/services/playlist-service');
     await expect(loadPlaylist()).rejects.toThrow('Playlist is empty');
   });
+
+  it('falls back to the next source when the first one fails', async () => {
+    fetchJson
+      .mockRejectedValueOnce(new Error('Request failed: 522'))
+      .mockResolvedValueOnce([{ name: 'B', artist: 'C', url: 'https://audio/b.mp3', pic: '' }]);
+    const { loadPlaylist } = await import('../../src/services/playlist-service');
+    await expect(loadPlaylist()).resolves.toEqual([
+      { name: 'B', author: 'C', url: 'https://audio/b.mp3', pic: '' }
+    ]);
+    expect(fetchJson).toHaveBeenCalledTimes(2);
+  });
 });
