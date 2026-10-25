@@ -177,6 +177,8 @@ import { Disc3, Pause, Play, SkipBack, SkipForward } from 'lucide-astro';
       currentIndex = getRandomIndex();
       updateSongDisplay();
       setControlState(false);
+      // 【临时 · 拍摄用】提前把音频挂上，点播放时能立刻出声，不用等加载
+      createAudio();
     } catch {
       // 歌单所有源都不可用时直接收起播放器，不要留一块"加载失败"的死 UI
       panel?.setAttribute('hidden', '');

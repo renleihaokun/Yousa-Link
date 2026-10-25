@@ -13,12 +13,13 @@ type PlaylistCache = {
   songs: Song[];
 };
 
-// 公益 Meting 实例，按顺序降级：任一可用即可，全部失败才抛错
+// 【临时 · 拍摄用】只放《大海带不走》一首；拍完还原成 69909382 歌单
 const PLAYLIST_SOURCES = [
-  'https://api.injahow.cn/meting/?server=netease&type=playlist&id=69909382',
-  'https://api.qijieya.cn/meting/?server=netease&type=playlist&id=69909382'
+  'https://api.injahow.cn/meting/?server=netease&type=song&id=2664420463',
+  'https://api.qijieya.cn/meting/?server=netease&type=song&id=2664420463'
 ];
-const CACHE_KEY = 'yousa-playlist-v1';
+// 换一个缓存键，避免浏览器里缓存的整张歌单把这首歌盖掉
+const CACHE_KEY = 'yousa-playlist-recording-v1';
 const CACHE_TTL = 30 * 60 * 1000;
 // 公益实例冷启动最慢要 8s 以上，超时放宽到 15s
 const REQUEST_TIMEOUT = 15000;

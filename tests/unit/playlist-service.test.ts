@@ -22,7 +22,7 @@ describe('playlist service', () => {
   });
 
   it('uses a valid session cache and rejects an empty response', async () => {
-    window.sessionStorage.setItem('yousa-playlist-v1', JSON.stringify({
+    window.sessionStorage.setItem('yousa-playlist-recording-v1', JSON.stringify({
       expiresAt: Date.now() + 60_000,
       songs: [{ name: 'Cached', author: 'A', url: 'https://audio/cached.mp3', pic: '' }]
     }));
