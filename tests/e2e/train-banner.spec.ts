@@ -67,7 +67,8 @@ test('parks the station screen on the nest once every tour has passed', async ({
   const stack = page.locator('#card-stack');
   const top = topCard(page);
   await expect(top).toHaveClass(/nest-card/);
-  await expect(top.locator('.nest-text')).toHaveText('鸟窝');
+  await expect(top.locator('.card-route')).toHaveText('上海→鸟窝');
+  await expect(top.locator('.card-date')).toHaveText('明年再见！');
   await expect(top).toBeVisible();
   await expect(stack.locator('.tour-card')).toHaveCount(8);
   await expect(stack.locator('.tour-card[data-tour-id="shanghai"] .status-value')).toHaveText('1天前·正点');

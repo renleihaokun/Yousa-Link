@@ -1,5 +1,5 @@
 ---
-import { getBannerOrder, NEST_ITEM_ID, type BannerOrderItem } from '../../domain/tours';
+import { getBannerOrder, getTours, NEST_ITEM_ID, type BannerOrderItem } from '../../domain/tours';
 import {
   formatCardStyle,
   getCardStyleVars,
@@ -15,6 +15,8 @@ const stackedH = getStackedHeight(COUNT);
 const expandedH = getExpandedHeight(COUNT);
 
 const nestItem: BannerOrderItem = { id: NEST_ITEM_ID, isNest: true, tour: null };
+// 鸟窝卡片沿用普通卡片的"起点 → 终点"格式，起点取最后一场的终点。
+const lastStopName = getTours().at(-1)?.to ?? '上海';
 const renderCards = items.map((item, slot) => ({
   item,
   slot,
@@ -44,9 +46,15 @@ if (!nestFirst) {
       >
         <div class="card-body">
           {card.item.isNest ? (
-            <div class="card-nest">
-              <span class="nest-icon">🪹</span>
-              <span class="nest-text">鸟窝</span>
+            <div class="card-info">
+              <div class="card-route">
+                <span class="card-from">{lastStopName}</span>
+                <span class="card-arrow">→</span>
+                <span class="card-to">鸟窝</span>
+              </div>
+              <div class="card-meta">
+                <span class="card-date">明年再见！</span>
+              </div>
             </div>
           ) : (
             <>
@@ -777,22 +785,6 @@ if (!nestFirst) {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-  }
-
-  .card-nest {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .nest-icon {
-    font-size: 22px;
-  }
-
-  .nest-text {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--color-text);
   }
 
   .stack-footer {
