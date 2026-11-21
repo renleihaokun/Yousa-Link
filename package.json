@@ -19,12 +19,12 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "astro": "^7.4.10",
+    "astro": "^7.4.12",
     "echarts": "^6.1.0",
     "lucide-astro": "^0.556.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
     "happy-dom": "^21.0.4",
     "pinyin-pro": "3.29.5",
@@ -32,7 +32,7 @@
     "province-city-china": "9.0.0",
     "sharp": "^0.35.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0",
+    "vitest": "^5.1.1",
     "world-cities-json": "1.0.1"
   }
 }
